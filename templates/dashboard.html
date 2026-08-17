@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client Onboarding — Internal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0d1b4b;
+      --blue: #2563eb;
+      --ink: #1a1a2e;
+      --muted: #5a6a85;
+      --faint: #8a96a8;
+      --line: #e3e8f0;
+      --bg: #f5f7fa;
+
+      --done-bg: #d1fae5;   --done-fg: #047857;   --done-line: #6ee7b7;
+      --prog-bg: #fef3c7;   --prog-fg: #b45309;   --prog-line: #fcd34d;
+      --block-bg: #fee2e2;  --block-fg: #b91c1c;  --block-line: #fca5a5;
+      --idle-bg: #eef1f6;   --idle-fg: #9aa7ba;   --idle-line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────── */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .topbar img { height: 26px; }
+    .topbar .title { font-size: 16px; font-weight: 700; color: var(--navy); }
+    .topbar .spacer { flex: 1; }
+    .topbar .who { font-size: 12px; color: var(--faint); }
+
+    .link-btn {
+      background: none; border: 1px solid var(--line); border-radius: 7px;
+      padding: 7px 13px; font-size: 13px; font-weight: 500; color: var(--muted);
+      cursor: pointer; font-family: inherit; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .link-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+    .btn {
+      background: var(--blue); color: #fff; border: none; border-radius: 7px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn.ghost { background: #fff; color: var(--muted); border: 1px solid var(--line); }
+    .btn.ghost:hover { color: var(--blue); border-color: var(--blue); }
+    .btn.danger { background: #fff; color: #b91c1c; border: 1px solid #fca5a5; }
+    .btn.danger:hover { background: #fee2e2; }
+
+    main { padding: 24px 28px 80px; max-width: 1680px; margin: 0 auto; }
+
+    .banner {
+      background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
+      border-radius: 9px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px;
+    }
+
+    /* ── KPI tiles ───────────────────────────────────────────── */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .kpi {
+      background: #fff; border: 1px solid var(--line); border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .kpi .label {
+      font-size: 11px; font-weight: 600; color: var(--faint);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
+    }
+    .kpi .value { font-size: 26px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+    .kpi .value small { font-size: 13px; font-weight: 500; color: var(--faint); }
+    .kpi .foot { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .kpi.alert { border-color: #fca5a5; background: #fffafa; }
+    .kpi.alert .value { color: #b91c1c; }
+
+    /* ── Panels ──────────────────────────────────────────────── */
+    .panels {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 1100px) { .panels { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border: 1px solid var(--line); border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card h2 {
+      font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 3px;
+    }
+    .card .card-sub { font-size: 12px; color: var(--faint); margin-bottom: 14px; }
+
+    table.stagetable { width: 100%; border-collapse: collapse; }
+    table.stagetable th {
+      font-size: 10.5px; font-weight: 600; color: var(--faint); text-align: right;
+      text-transform: uppercase; letter-spacing: 0.05em; padding: 0 6px 8px;
+    }
+    table.stagetable th:first-child { text-align: left; }
+    table.stagetable td {
+      padding: 7px 6px; font-size: 13px; border-top: 1px solid #f0f3f8;
+      text-align: right; color: var(--ink); white-space: nowrap;
+    }
+    table.stagetable td:first-child { text-align: left; width: 100%; }
+    .stage-name { display: flex; align-items: center; gap: 9px; }
+    .stage-bar {
+      flex: 1; height: 6px; background: #eef1f6; border-radius: 3px;
+      overflow: hidden; min-width: 40px; max-width: 130px;
+    }
+    .stage-bar span { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+    .dim { color: var(--faint); }
+    .flag { color: #b91c1c; font-weight: 600; }
+    .tag-slow {
+      background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+      letter-spacing: 0.04em; margin-left: 6px;
+    }
+
+    .attn-row {
+      display: flex; align-items: center; gap: 10px; padding: 9px 0;
+      border-top: 1px solid #f0f3f8; cursor: pointer;
+    }
+    .attn-row:hover .attn-name { color: var(--blue); }
+    .attn-name { font-weight: 600; font-size: 13px; flex: 1; }
+    .attn-stage { font-size: 12px; color: var(--muted); }
+    .attn-days {
+      font-size: 12px; font-weight: 700; color: #b91c1c;
+      background: #fee2e2; padding: 3px 8px; border-radius: 5px; white-space: nowrap;
+    }
+    .empty { font-size: 13px; color: var(--faint); padding: 14px 0; }
+
+    /* ── Toolbar ─────────────────────────────────────────────── */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .search {
+      border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px;
+      font-size: 13px; font-family: inherit; min-width: 230px; background: #fff;
+      outline: none;
+    }
+    .search:focus { border-color: var(--blue); }
+    select.filter {
+      border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+      font-size: 13px; font-family: inherit; background: #fff; color: var(--muted);
+      outline: none; cursor: pointer;
+    }
+    .pills { display: flex; gap: 6px; }
+    .pill {
+      border: 1px solid var(--line); background: #fff; border-radius: 20px;
+      padding: 6px 13px; font-size: 12.5px; font-weight: 500; color: var(--muted);
+      cursor: pointer; font-family: inherit;
+    }
+    .pill.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+    /* ── Board ───────────────────────────────────────────────── */
+    .board-wrap {
+      background: #fff; border: 1px solid var(--line); border-radius: 10px;
+      overflow: auto; max-height: 70vh;
+    }
+    table.board { border-collapse: separate; border-spacing: 0; width: 100%; }
+    table.board thead th {
+      position: sticky; top: 0; z-index: 20; background: #fff;
+      border-bottom: 1px solid var(--line);
+      font-size: 10.5px; font-weight: 600; color: var(--faint);
+      text-transform: uppercase; letter-spacing: 0.045em;
+      padding: 11px 8px; text-align: center; white-space: nowrap;
+    }
+    table.board thead th.who-col {
+      left: 0; z-index: 30; text-align: left; padding-left: 18px;
+      border-right: 1px solid var(--line); min-width: 235px;
+    }
+    table.board tbody td {
+      border-bottom: 1px solid #f0f3f8; padding: 6px 7px; text-align: center;
+    }
+    table.board tbody td.who-col {
+      position: sticky; left: 0; z-index: 10; background: #fff;
+      border-right: 1px solid var(--line); text-align: left;
+      padding: 9px 14px 9px 18px;
+    }
+    table.board tbody tr:hover td.who-col { background: #fafbfd; }
+
+    .who-name {
+      font-weight: 600; font-size: 13.5px; color: var(--navy); cursor: pointer;
+      display: block; margin-bottom: 2px;
+    }
+    .who-name:hover { color: var(--blue); }
+    .who-meta { font-size: 11.5px; color: var(--faint); }
+
+    .cell {
+      width: 100%; min-width: 52px; height: 30px; border-radius: 6px;
+      border: 1px solid var(--idle-line); background: var(--idle-bg);
+      color: var(--idle-fg); font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.08s;
+    }
+    .cell:hover { transform: scale(1.06); }
+    .cell.done { background: var(--done-bg); border-color: var(--done-line); color: var(--done-fg); }
+    .cell.in_progress { background: var(--prog-bg); border-color: var(--prog-line); color: var(--prog-fg); }
+    .cell.blocked { background: var(--block-bg); border-color: var(--block-line); color: var(--block-fg); }
+    .cell.current { box-shadow: 0 0 0 2px rgba(37,99,235,0.35); }
+
+    .prog-wrap { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .prog-bar { width: 54px; height: 6px; background: #eef1f6; border-radius: 3px; overflow: hidden; }
+    .prog-bar span { display: block; height: 100%; background: #10b981; }
+    .prog-num { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .age { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .age.warn { color: #b91c1c; font-weight: 600; }
+    .live-badge {
+      background: var(--done-bg); color: var(--done-fg); font-size: 11px;
+      font-weight: 700; padding: 3px 9px; border-radius: 5px;
+    }
+
+    /* ── Status popover ──────────────────────────────────────── */
+    .popover {
+      position: absolute; z-index: 200; background: #fff; border: 1px solid var(--line);
+      border-radius: 9px; box-shadow: 0 8px 26px rgba(13,27,75,0.16);
+      padding: 6px; display: none; min-width: 172px;
+    }
+    .popover .pop-head {
+      font-size: 10.5px; font-weight: 700; color: var(--faint); padding: 6px 9px 7px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid #f0f3f8; margin-bottom: 4px;
+    }
+    .popover button {
+      display: flex; align-items: center; gap: 9px; width: 100%; background: none;
+      border: none; padding: 8px 9px; border-radius: 6px; font-size: 13px;
+      font-family: inherit; color: var(--ink); cursor: pointer; text-align: left;
+    }
+    .popover button:hover { background: #f2f5fa; }
+    .swatch { width: 13px; height: 13px; border-radius: 4px; border: 1px solid; flex-shrink: 0; }
+
+    /* ── Drawer ──────────────────────────────────────────────── */
+    .scrim {
+      position: fixed; inset: 0; background: rgba(13,27,75,0.32); z-index: 100;
+      display: none;
+    }
+    .drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 94vw;
+      background: #fff; z-index: 110; box-shadow: -6px 0 30px rgba(13,27,75,0.16);
+      display: none; flex-direction: column;
+    }
+    .drawer.open, .scrim.open { display: flex; }
+    .drawer-head {
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .drawer-head h2 { font-size: 18px; font-weight: 700; color: var(--navy); }
+    .drawer-head .sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .drawer-body { padding: 20px 24px 40px; overflow-y: auto; flex: 1; }
+    .close-x {
+      background: none; border: none; font-size: 22px; color: var(--faint);
+      cursor: pointer; line-height: 1; padding: 0 4px;
+    }
+    .close-x:hover { color: var(--ink); }
+
+    .section-title {
+      font-size: 11px; font-weight: 700; color: var(--faint); text-transform: uppercase;
+      letter-spacing: 0.05em; margin: 24px 0 10px; padding-bottom: 7px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    .kv {
+      display: grid; grid-template-columns: minmax(0, 145px) minmax(0, 1fr);
+      gap: 7px 12px; font-size: 13px;
+    }
+    .kv dt { color: var(--faint); overflow-wrap: anywhere; }
+    .kv dd { color: var(--ink); overflow-wrap: anywhere; }
+
+    .timeline-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 0;
+      border-bottom: 1px solid #f5f7fa; font-size: 13px;
+    }
+    .tl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .tl-label { flex: 1; }
+    .tl-days { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .event {
+      padding: 9px 0; border-bottom: 1px solid #f5f7fa; font-size: 13px;
+    }
+    .event .meta { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+
+    .field { margin-bottom: 13px; }
+    .field label {
+      display: block; font-size: 11px; font-weight: 600; color: var(--faint);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px;
+    }
+    .field input, .field textarea, .field select {
+      width: 100%; border: 1px solid var(--line); border-radius: 7px;
+      padding: 9px 11px; font-size: 13px; font-family: inherit; background: #fafbfd;
+      outline: none; color: var(--ink);
+    }
+    .field input:focus, .field textarea:focus { border-color: var(--blue); background: #fff; }
+    .field textarea { min-height: 70px; resize: vertical; }
+
+    /* ── Modal ───────────────────────────────────────────────── */
+    .modal {
+      position: fixed; inset: 0; z-index: 150; display: none;
+      align-items: center; justify-content: center; padding: 24px;
+      background: rgba(13,27,75,0.32);
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      background: #fff; border-radius: 12px; width: 100%; max-width: 540px;
+      max-height: 88vh; overflow-y: auto; padding: 26px 28px;
+    }
+    .modal-card h2 { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+    .modal-card .sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    code.snippet {
+      display: block; background: #0d1b4b; color: #d5e2ff; border-radius: 8px;
+      padding: 12px 14px; font-size: 12.5px; word-break: break-all;
+      font-family: ui-monospace, Menlo, monospace; margin: 6px 0 16px; line-height: 1.6;
+    }
+    .doc p { font-size: 13px; color: var(--muted); line-height: 1.65; margin-bottom: 10px; }
+    .doc ul { font-size: 13px; color: var(--muted); line-height: 1.75; padding-left: 20px; margin-bottom: 12px; }
+    .doc strong { color: var(--ink); }
+
+    .toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      background: var(--navy); color: #fff; padding: 11px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; z-index: 300; display: none;
+      box-shadow: 0 6px 20px rgba(13,27,75,0.28);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <img src="https://assets.cdn.filesafe.space/tq6XOnCnirPu6tiBRkvb/media/67d1bf6fc9434cc05c352304.png" alt="Excelsior Franchise Solutions" />
+    <div class="title">Client Onboarding</div>
+    <div class="spacer"></div>
+    <span class="who">Signed in as {{ actor }}</span>
+    <button class="link-btn" onclick="openWebhookHelp()">Webhook setup</button>
+    <a class="link-btn" href="/api/export.csv">Export CSV</a>
+    <button class="btn" onclick="openAdd()">Add client</button>
+    {% if password_set %}<a class="link-btn" href="/onboarding/logout">Sign out</a>{% endif %}
+  </div>
+
+  <main>
+    {% if not password_set %}
+    <div class="banner">
+      <strong>This board is not password protected.</strong>
+      Set a <code>DASHBOARD_PASSWORD</code> environment variable in Railway so only your team can reach it.
+    </div>
+    {% endif %}
+    {% if not secret_required %}
+    <div class="banner">
+      <strong>The webhook has no secret.</strong>
+      Set a <code>WEBHOOK_SECRET</code> environment variable so only GoHighLevel can post client data in.
+    </div>
+    {% endif %}
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="panels">
+      <div class="card">
+        <h2>Stage performance</h2>
+        <p class="card-sub">Average days spent in each stage, and how many clients are sitting there right now.</p>
+        <div id="stageTable"></div>
+      </div>
+      <div class="card">
+        <h2>Needs attention</h2>
+        <p class="card-sub" id="attnSub">Clients parked at the same stage too long.</p>
+        <div id="attention"></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="search" id="search" placeholder="Search client, company, email..." oninput="render()" />
+      <div class="pills" id="pills"></div>
+      <select class="filter" id="ownerFilter" onchange="render()"><option value="">All owners</option></select>
+      <select class="filter" id="sortBy" onchange="render()">
+        <option value="recent">Newest first</option>
+        <option value="waiting">Longest waiting</option>
+        <option value="progress">Most progress</option>
+        <option value="name">Name A–Z</option>
+        <option value="fastest">Fastest to live</option>
+      </select>
+      <div class="spacer" style="flex:1"></div>
+      <span class="who" id="lastSync"></span>
+      <button class="link-btn" onclick="load()">Refresh</button>
+    </div>
+
+    <div class="board-wrap">
+      <table class="board">
+        <thead><tr id="boardHead"></tr></thead>
+        <tbody id="boardBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="popover" id="popover"></div>
+
+  <div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <div style="flex:1">
+        <h2 id="drawerName"></h2>
+        <div class="sub" id="drawerSub"></div>
+      </div>
+      <button class="close-x" onclick="closeDrawer()">&times;</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+
+  <div class="modal" id="addModal">
+    <div class="modal-card">
+      <h2>Add a client</h2>
+      <p class="sub">For anyone who did not come through the GoHighLevel webhook.</p>
+      <div class="field"><label>Client name</label><input id="addName" placeholder="Jane Doe" /></div>
+      <div class="row2">
+        <div class="field"><label>Company</label><input id="addCompany" /></div>
+        <div class="field"><label>Brand / niche</label><input id="addBrand" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Email</label><input id="addEmail" /></div>
+        <div class="field"><label>Phone</label><input id="addPhone" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Website</label><input id="addWebsite" /></div>
+        <div class="field"><label>Owner (who runs it)</label><input id="addOwner" /></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" onclick="closeAdd()">Cancel</button>
+        <button class="btn" onclick="submitAdd()">Add client</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="webhookModal">
+    <div class="modal-card doc">
+      <h2>Wire up GoHighLevel</h2>
+      <p class="sub">One workflow action pushes a new client onto this board automatically.</p>
+
+      <p><strong>1. Point a webhook at this URL</strong></p>
+      <code class="snippet" id="hookUrl"></code>
+      <p>In GHL: open the workflow that fires when a client is onboarded, add a
+      <strong>Webhook</strong> action, set the method to <strong>POST</strong>, and paste that URL.</p>
+
+      <p><strong>2. Send whatever fields you have</strong></p>
+      <p>The endpoint reads any nesting depth and recognises the usual GHL names, so
+      you rarely have to rename anything:</p>
+      <ul>
+        <li><strong>name</strong> — full_name, first_name + last_name, contact.name</li>
+        <li><strong>email</strong> — email, email_address</li>
+        <li><strong>phone</strong> — phone, phone_number</li>
+        <li><strong>company</strong> — company_name, business_name, brand_name</li>
+        <li><strong>website</strong> — website, website_url, domain</li>
+        <li><strong>brand / owner</strong> — brand, franchise, niche / owner, account_manager</li>
+        <li><strong>contact id</strong> — contact_id, location_id</li>
+      </ul>
+      <p>Everything else in the payload is stored as-is and shown on the client's
+      detail panel, so nothing gets lost.</p>
+
+      <p><strong>3. Advance stages from GHL (optional)</strong></p>
+      <p>Add a <code>stage</code> field to any webhook and this board moves that client
+      along without anyone clicking. Send the stage label and, optionally, a
+      <code>stage_status</code> of done, in_progress, or blocked:</p>
+      <code class="snippet">{ "email": "jane@acme.com", "stage": "ATP Approved", "stage_status": "done" }</code>
+      <p>Matching is by email first, then GHL contact id, then name — so repeat
+      submissions update the same client instead of creating duplicates. A brand new
+      client is automatically marked Onboarded and Info Submitted.</p>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeWebhookHelp()">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const STAGES = {{ stages_json|safe }};
+  const STATUSES = {{ statuses_json|safe }};
+  const WEBHOOK_URL = {{ webhook_url|tojson }};
+
+  const STATUS_META = {
+    not_started: { label: 'Not started', glyph: '', bg: '#eef1f6', line: '#e2e8f0' },
+    in_progress: { label: 'In progress', glyph: '●', bg: '#fef3c7', line: '#fcd34d' },
+    blocked:     { label: 'Blocked',     glyph: '✕', bg: '#fee2e2', line: '#fca5a5' },
+    done:        { label: 'Done',        glyph: '✓', bg: '#d1fae5', line: '#6ee7b7' }
+  };
+
+  const FILTERS = [
+    ['all', 'All'],
+    ['active', 'In flight'],
+    ['stuck', 'Stuck'],
+    ['blocked', 'Blocked'],
+    ['live', 'Live']
+  ];
+
+  let CLIENTS = [];
+  let STATS = null;
+  let filter = 'active';
+  let openClientId = null;
+
+  // ── Loading ──────────────────────────────────────────────────
+
+  async function load() {
+    try {
+      const res = await fetch('/api/clients');
+      if (res.status === 401) { window.location.href = '/onboarding/login'; return; }
+      const data = await res.json();
+      CLIENTS = data.clients;
+      STATS = data.stats;
+      populateOwners();
+      renderKpis();
+      renderStageTable();
+      renderAttention();
+      render();
+      document.getElementById('lastSync').textContent =
+        'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {
+      toast('Could not reach the server');
+    }
+  }
+
+  function num(v, suffix) {
+    if (v === null || v === undefined) return '<small>—</small>';
+    return v + (suffix ? '<small> ' + suffix + '</small>' : '');
+  }
+
+  function days(n) { return n + (n === 1 ? ' day' : ' days'); }
+
+  // ── KPIs ─────────────────────────────────────────────────────
+
+  function renderKpis() {
+    const s = STATS;
+    const tiles = [];
+
+    tiles.push(tile('In flight', s.in_progress + s.blocked + s.not_started,
+      s.total + ' clients tracked'));
+    tiles.push(tile('Live', s.live,
+      s.launched_last_30 + ' launched in last 30 days'));
+    tiles.push(tile('Median time to live', num(s.median_days_to_launch, 'days'),
+      s.avg_days_to_launch !== null
+        ? 'Average ' + s.avg_days_to_launch + ' days'
+        : 'No launches yet', false, true));
+    tiles.push(tile('Fastest / slowest',
+      (s.fastest_launch !== null ? s.fastest_launch : '—') + ' / ' +
+      (s.slowest_launch !== null ? s.slowest_launch : '—'),
+      'Days from onboard to live', false, true));
+    tiles.push(tile('Stuck', s.stuck,
+      'No movement in ' + s.stuck_after_days + '+ days', s.stuck > 0));
+    tiles.push(tile('Blocked', s.blocked,
+      'Something is in the way', s.blocked > 0));
+
+    document.getElementById('kpis').innerHTML = tiles.join('');
+  }
+
+  function tile(label, value, foot, alert, raw) {
+    return '<div class="kpi' + (alert ? ' alert' : '') + '">' +
+      '<div class="label">' + label + '</div>' +
+      '<div class="value">' + (raw ? value : esc(String(value))) + '</div>' +
+      '<div class="foot">' + esc(foot) + '</div></div>';
+  }
+
+  // ── Stage performance ────────────────────────────────────────
+
+  function renderStageTable() {
+    const slowKey = STATS.slowest_stage ? STATS.slowest_stage.key : null;
+    const maxAvg = Math.max(1, ...STATS.stages.map(s => s.avg_days || 0));
+
+    let html = '<table class="stagetable"><thead><tr>' +
+      '<th>Stage</th><th>Cleared</th><th>Avg days</th><th>Median</th>' +
+      '<th>Here now</th><th>Longest</th></tr></thead><tbody>';
+
+    STATS.stages.forEach(s => {
+      const width = s.avg_days ? Math.round((s.avg_days / maxAvg) * 100) : 0;
+      const slow = s.key === slowKey ? '<span class="tag-slow">Slowest</span>' : '';
+      const longest = s.longest_wait !== null && s.longest_wait !== undefined
+        ? '<span class="' + (s.longest_wait >= STATS.stuck_after_days ? 'flag' : 'dim') + '">' +
+          s.longest_wait + 'd</span>'
+        : '<span class="dim">—</span>';
+      html += '<tr>' +
+        '<td><div class="stage-name"><span>' + esc(s.label) + '</span>' + slow +
+        '<span class="stage-bar"><span style="width:' + width + '%"></span></span></div></td>' +
+        '<td>' + s.done + '</td>' +
+        '<td>' + (s.avg_days !== null ? s.avg_days : '<span class="dim">—</span>') + '</td>' +
+        '<td class="dim">' + (s.median_days !== null ? s.median_days : '—') + '</td>' +
+        '<td>' + (s.wip ? '<strong>' + s.wip + '</strong>' : '<span class="dim">0</span>') + '</td>' +
+        '<td>' + longest + '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    if (STATS.jammed_stage && STATS.jammed_stage.wip > 0) {
+      html += '<p class="card-sub" style="margin:14px 0 0">Biggest pile-up right now: <strong>' +
+        esc(STATS.jammed_stage.label) + '</strong> with ' + STATS.jammed_stage.wip +
+        ' client' + (STATS.jammed_stage.wip === 1 ? '' : 's') + ' waiting.</p>';
+    }
+    document.getElementById('stageTable').innerHTML = html;
+  }
+
+  function renderAttention() {
+    const list = STATS.stuck_clients || [];
+    document.getElementById('attnSub').textContent =
+      'Clients with no movement for ' + STATS.stuck_after_days + '+ days.';
+    if (!list.length) {
+      document.getElementById('attention').innerHTML =
+        '<p class="empty">Nothing is stalled. Every client has moved in the last ' +
+        STATS.stuck_after_days + ' days.</p>';
+      return;
+    }
+    document.getElementById('attention').innerHTML = list.map(c =>
+      '<div class="attn-row" onclick="openDrawer(' + c.id + ')">' +
+        '<span class="attn-name">' + esc(c.name) + '</span>' +
+        '<span class="attn-stage">' + esc(c.stage) + '</span>' +
+        '<span class="attn-days">' + c.days + 'd</span>' +
+      '</div>'
+    ).join('');
+  }
+
+  // ── Board ────────────────────────────────────────────────────
+
+  function populateOwners() {
+    const sel = document.getElementById('ownerFilter');
+    const current = sel.value;
+    const owners = [...new Set(CLIENTS.map(c => c.owner).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All owners</option>' +
+      owners.map(o => '<option value="' + esc(o) + '">' + esc(o) + '</option>').join('');
+    sel.value = current;
+  }
+
+  function renderPills() {
+    document.getElementById('pills').innerHTML = FILTERS.map(f =>
+      '<button class="pill' + (filter === f[0] ? ' on' : '') +
+      '" onclick="setFilter(\'' + f[0] + '\')">' + f[1] + '</button>'
+    ).join('');
+  }
+
+  function setFilter(f) { filter = f; render(); }
+
+  function visibleClients() {
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    const owner = document.getElementById('ownerFilter').value;
+    const sort = document.getElementById('sortBy').value;
+
+    let rows = CLIENTS.filter(c => {
+      if (owner && c.owner !== owner) return false;
+      if (filter === 'live' && c.overall !== 'live') return false;
+      if (filter === 'active' && c.overall === 'live') return false;
+      if (filter === 'blocked' && c.overall !== 'blocked') return false;
+      if (filter === 'stuck') {
+        if (c.overall === 'live') return false;
+        if (c.current_wait_days === null || c.current_wait_days < STATS.stuck_after_days) return false;
+      }
+      if (q) {
+        const hay = [c.name, c.company, c.email, c.brand, c.owner, c.website]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const by = {
+      recent: (a, b) => (b.created_at || '').localeCompare(a.created_at || ''),
+      waiting: (a, b) => (b.current_wait_days || 0) - (a.current_wait_days || 0),
+      progress: (a, b) => b.progress - a.progress,
+      name: (a, b) => a.name.localeCompare(b.name),
+      fastest: (a, b) => (a.days_to_launch === null ? Infinity : a.days_to_launch) -
+                         (b.days_to_launch === null ? Infinity : b.days_to_launch)
+    };
+    return rows.sort(by[sort] || by.recent);
+  }
+
+  function render() {
+    renderPills();
+
+    document.getElementById('boardHead').innerHTML =
+      '<th class="who-col">Client</th>' +
+      STAGES.map(s => '<th title="' + esc(s.label) + '">' + esc(s.short) + '</th>').join('') +
+      '<th>Progress</th><th>Waiting</th>';
+
+    const rows = visibleClients();
+    if (!rows.length) {
+      document.getElementById('boardBody').innerHTML =
+        '<tr><td colspan="' + (STAGES.length + 3) + '" style="padding:36px;text-align:center">' +
+        '<span class="empty">No clients match this view.</span></td></tr>';
+      return;
+    }
+
+    document.getElementById('boardBody').innerHTML = rows.map(c => {
+      const meta = [c.company, c.brand, c.owner ? 'Owner: ' + c.owner : null]
+        .filter(Boolean).join(' &middot; ');
+
+      const cells = STAGES.map(s => {
+        const st = c.stages[s.key];
+        const isCurrent = c.current_stage === s.key;
+        const parts = [STATUS_META[st.status].label];
+        if (st.duration_days !== null) parts.push('took ' + days(st.duration_days));
+        else if (isCurrent && st.waiting_days !== null) parts.push('waiting ' + days(st.waiting_days));
+        return '<td><button class="cell ' + st.status + (isCurrent ? ' current' : '') +
+          '" title="' + esc(s.label + ' — ' + parts.join(', ')) +
+          '" onclick="openPopover(event,' + c.id + ',\'' + s.key + '\')">' +
+          STATUS_META[st.status].glyph + '</button></td>';
+      }).join('');
+
+      const waiting = c.overall === 'live'
+        ? '<span class="live-badge">Live in ' + (c.days_to_launch !== null ? c.days_to_launch + 'd' : '—') + '</span>'
+        : '<span class="age' + (c.current_wait_days !== null && c.current_wait_days >= STATS.stuck_after_days ? ' warn' : '') +
+          '">' + (c.current_wait_days !== null ? c.current_wait_days + 'd' : '—') + '</span>';
+
+      return '<tr>' +
+        '<td class="who-col">' +
+          '<span class="who-name" onclick="openDrawer(' + c.id + ')">' + esc(c.name) + '</span>' +
+          '<span class="who-meta">' + (meta || '&nbsp;') + '</span>' +
+        '</td>' + cells +
+        '<td><div class="prog-wrap"><div class="prog-bar"><span style="width:' + c.progress + '%"></span></div>' +
+        '<span class="prog-num">' + c.done_count + '/' + c.stage_count + '</span></div></td>' +
+        '<td>' + waiting + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ── Status popover ───────────────────────────────────────────
+
+  function openPopover(evt, clientId, stageKey) {
+    evt.stopPropagation();
+    const pop = document.getElementById('popover');
+    const stage = STAGES.find(s => s.key === stageKey);
+    const client = CLIENTS.find(c => c.id === clientId);
+    const currentStatus = client.stages[stageKey].status;
+
+    pop.innerHTML = '<div class="pop-head">' + esc(stage.label) + '</div>' +
+      STATUSES.map(st => {
+        const m = STATUS_META[st];
+        const check = st === currentStatus ? ' &check;' : '';
+        return '<button onclick="setStage(' + clientId + ',\'' + stageKey + '\',\'' + st + '\')">' +
+          '<span class="swatch" style="background:' + m.bg + ';border-color:' + m.line + '"></span>' +
+          m.label + check + '</button>';
+      }).join('');
+
+    const rect = evt.currentTarget.getBoundingClientRect();
+    pop.style.display = 'block';
+    const width = pop.offsetWidth;
+    let left = rect.left + window.scrollX + rect.width / 2 - width / 2;
+    left = Math.max(10, Math.min(left, window.innerWidth - width - 10));
+    pop.style.left = left + 'px';
+    pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+  }
+
+  function closePopover() { document.getElementById('popover').style.display = 'none'; }
+
+  document.addEventListener('click', closePopover);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closePopover(); closeDrawer(); closeAdd(); closeWebhookHelp(); }
+  });
+
+  async function setStage(clientId, stageKey, status) {
+    closePopover();
+    await post('/api/clients/' + clientId + '/stage', { stage: stageKey, status: status });
+    await load();
+    if (openClientId === clientId) openDrawer(clientId);
+  }
+
+  // ── Drawer ───────────────────────────────────────────────────
+
+  async function openDrawer(clientId) {
+    openClientId = clientId;
+    const res = await fetch('/api/clients/' + clientId);
+    if (!res.ok) { toast('Could not load that client'); return; }
+    const c = await res.json();
+
+    document.getElementById('drawerName').textContent = c.name;
+    document.getElementById('drawerSub').textContent =
+      [c.company, c.brand].filter(Boolean).join(' · ') ||
+      (c.overall === 'live' ? 'Live' : 'At ' + c.current_stage_label);
+
+    let html = '';
+
+    html += '<div class="section-title">Where they are</div>';
+    html += '<dl class="kv">' +
+      row('Status', c.overall === 'live'
+        ? 'Live — took ' + (c.days_to_launch !== null ? days(c.days_to_launch) : 'unknown')
+        : c.current_stage_label + (c.current_wait_days !== null ? ' (' + days(c.current_wait_days) + ')' : '')) +
+      row('Progress', c.done_count + ' of ' + c.stage_count + ' stages') +
+      row('Onboarded', fmtDate(c.created_at)) +
+      row('Last activity', fmtDate(c.updated_at)) +
+      '</dl>';
+
+    html += '<div class="section-title">Stage timeline</div>';
+    STAGES.forEach(s => {
+      const st = c.stages[s.key];
+      const m = STATUS_META[st.status];
+      let right = '<span class="dim">—</span>';
+      if (st.duration_days !== null) right = days(st.duration_days);
+      else if (c.current_stage === s.key && st.waiting_days !== null)
+        right = 'waiting ' + days(st.waiting_days);
+      html += '<div class="timeline-row">' +
+        '<span class="tl-dot" style="background:' + m.line + '"></span>' +
+        '<span class="tl-label">' + esc(s.label) + '</span>' +
+        '<span class="tl-days">' + right + '</span></div>';
+    });
+
+    html += '<div class="section-title">Details</div>';
+    html += '<div class="row2">' +
+      inp('Owner', 'ed_owner', c.owner) + inp('Brand / niche', 'ed_brand', c.brand) + '</div>';
+    html += '<div class="row2">' +
+      inp('Email', 'ed_email', c.email) + inp('Phone', 'ed_phone', c.phone) + '</div>';
+    html += '<div class="row2">' +
+      inp('Company', 'ed_company', c.company) + inp('Website', 'ed_website', c.website) + '</div>';
+    html += '<div class="field"><label>Internal notes</label><textarea id="ed_notes">' +
+      esc(c.notes || '') + '</textarea></div>';
+    html += '<div style="display:flex;gap:10px"><button class="btn" onclick="saveClient(' + c.id +
+      ')">Save details</button><button class="btn danger" onclick="removeClient(' + c.id +
+      ')">Delete</button></div>';
+
+    const submitted = flatten(c.submitted);
+    if (Object.keys(submitted).length) {
+      html += '<div class="section-title">Submitted from GHL</div><dl class="kv">';
+      Object.keys(submitted).slice(0, 60).forEach(k => {
+        html += row(k, String(submitted[k]));
+      });
+      html += '</dl>';
+    }
+
+    html += '<div class="section-title">Activity</div>';
+    html += '<div class="field"><textarea id="noteBox" placeholder="Add a note..."></textarea>' +
+      '<button class="btn ghost" style="margin-top:8px" onclick="addNote(' + c.id + ')">Add note</button></div>';
+    html += (c.events || []).map(e =>
+      '<div class="event">' + esc(e.message) +
+      '<div class="meta">' + fmtDate(e.created_at) + ' · ' + esc(e.actor || 'system') + '</div></div>'
+    ).join('');
+
+    document.getElementById('drawerBody').innerHTML = html;
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('scrim').classList.add('open');
+  }
+
+  function closeDrawer() {
+    openClientId = null;
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('scrim').classList.remove('open');
+  }
+
+  function row(k, v) { return '<dt>' + esc(k) + '</dt><dd>' + esc(v || '—') + '</dd>'; }
+
+  function inp(label, id, value) {
+    return '<div class="field"><label>' + label + '</label>' +
+      '<input id="' + id + '" value="' + esc(value || '') + '" /></div>';
+  }
+
+  async function saveClient(id) {
+    const payload = {
+      owner: val('ed_owner'), brand: val('ed_brand'), email: val('ed_email'),
+      phone: val('ed_phone'), company: val('ed_company'), website: val('ed_website'),
+      notes: val('ed_notes')
+    };
+    await patch('/api/clients/' + id, payload);
+    toast('Saved');
+    await load();
+    openDrawer(id);
+  }
+
+  async function removeClient(id) {
+    if (!confirm('Delete this client and their whole history? This cannot be undone.')) return;
+    await fetch('/api/clients/' + id, { method: 'DELETE' });
+    closeDrawer();
+    toast('Client deleted');
+    load();
+  }
+
+  async function addNote(id) {
+    const message = val('noteBox');
+    if (!message) return;
+    await post('/api/clients/' + id + '/note', { message: message });
+    openDrawer(id);
+    load();
+  }
+
+  // ── Add client ───────────────────────────────────────────────
+
+  function openAdd() { document.getElementById('addModal').classList.add('open'); }
+  function closeAdd() { document.getElementById('addModal').classList.remove('open'); }
+
+  async function submitAdd() {
+    const name = val('addName');
+    if (!name) { toast('A name is required'); return; }
+    const res = await post('/api/clients', {
+      name: name, company: val('addCompany'), brand: val('addBrand'),
+      email: val('addEmail'), phone: val('addPhone'),
+      website: val('addWebsite'), owner: val('addOwner')
+    });
+    if (res) {
+      ['addName','addCompany','addBrand','addEmail','addPhone','addWebsite','addOwner']
+        .forEach(id => document.getElementById(id).value = '');
+      closeAdd();
+      toast('Client added');
+      load();
+    }
+  }
+
+  function openWebhookHelp() {
+    document.getElementById('hookUrl').textContent = WEBHOOK_URL;
+    document.getElementById('webhookModal').classList.add('open');
+  }
+  function closeWebhookHelp() { document.getElementById('webhookModal').classList.remove('open'); }
+
+  // ── Helpers ──────────────────────────────────────────────────
+
+  function val(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+
+  async function post(url, body) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { toast(data.error || 'Something went wrong'); return null; }
+    return data;
+  }
+
+  async function patch(url, body) {
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  }
+
+  function flatten(obj, prefix, out, depth) {
+    out = out || {};
+    depth = depth || 0;
+    if (!obj || typeof obj !== 'object' || depth > 3) return out;
+    Object.keys(obj).forEach(k => {
+      const v = obj[k];
+      const path = (prefix || '') + k;
+      if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, path + '.', out, depth + 1);
+      else if (v !== null && v !== '' && v !== undefined) out[path] = Array.isArray(v) ? v.join(', ') : v;
+    });
+    return out;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ', ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function esc(str) {
+    return String(str === null || str === undefined ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2600);
+  }
+
+  // Refresh in the background, but never yank the page out from under someone
+  // who is mid-edit.
+  setInterval(() => {
+    const busy = document.getElementById('drawer').classList.contains('open') ||
+      document.getElementById('addModal').classList.contains('open') ||
+      document.getElementById('popover').style.display === 'block';
+    if (!busy) load();
+  }, 45000);
+
+  load();
+</script>
+</body>
+</html>

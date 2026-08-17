@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Client Onboarding</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 36px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      width: 100%;
+      max-width: 400px;
+    }
+    .logo { display: block; height: 32px; margin-bottom: 28px; }
+    h1 { font-size: 22px; font-weight: 700; color: #0d1b4b; margin-bottom: 6px; }
+    p.sub { font-size: 14px; color: #5a6a85; margin-bottom: 26px; }
+    label {
+      display: block; font-size: 12px; font-weight: 600; color: #0d1b4b;
+      margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #dde3ee;
+      border-radius: 8px; font-size: 15px; font-family: 'Inter', sans-serif;
+      background: #fafbfd; outline: none; margin-bottom: 18px;
+    }
+    input:focus { border-color: #2563eb; background: #fff; }
+    button {
+      width: 100%; background: #2563eb; color: #fff; font-size: 15px;
+      font-weight: 600; padding: 13px; border: none; border-radius: 8px;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+    }
+    button:hover { background: #1d4ed8; }
+    .error {
+      background: #fff5f5; border: 1.5px solid #feb2b2; border-radius: 8px;
+      padding: 12px 14px; color: #c53030; font-size: 13px; margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+  <form class="card" method="POST">
+    <img src="https://assets.cdn.filesafe.space/tq6XOnCnirPu6tiBRkvb/media/67d1bf6fc9434cc05c352304.png" class="logo" alt="Excelsior Franchise Solutions" />
+    <h1>Client Onboarding</h1>
+    <p class="sub">Sign in to view the onboarding board.</p>
+
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+    <label for="name">Your name (optional)</label>
+    <input type="text" id="name" name="name" placeholder="So we can log who moved what" />
+
+    <label for="password">Team password</label>
+    <input type="password" id="password" name="password" autofocus required />
+
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>
