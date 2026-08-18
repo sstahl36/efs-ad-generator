@@ -386,8 +386,13 @@ def all_stages():
     return out
 
 
-def serialize_client(row, stage_map):
-    """Turn a client row plus its stages into the shape the dashboard expects."""
+def serialize_client(row, stage_map, include_payload=True):
+    """Turn a client row plus its stages into the shape the dashboard expects.
+
+    The stored GHL payload is only read on the client detail panel, which loads
+    one client at a time, so the board list leaves it out — otherwise every
+    background refresh ships every client's entire form submission.
+    """
     stages = stage_map.get(row['id'], {})
     resolved = {}
     for key in STAGE_KEYS:
@@ -450,7 +455,7 @@ def serialize_client(row, stage_map):
             days_to_launch = max(0.0, round((launched - started).total_seconds() / 86400, 1))
 
     raw = None
-    if row.get('raw_payload'):
+    if include_payload and row.get('raw_payload'):
         try:
             raw = json.loads(row['raw_payload'])
         except (ValueError, TypeError):
@@ -487,11 +492,11 @@ def serialize_client(row, stage_map):
     }
 
 
-def list_clients(include_archived=False):
+def list_clients(include_archived=False, include_payload=False):
     sql = 'SELECT * FROM clients'
     if not include_archived:
         sql += ' WHERE archived = 0'
     sql += ' ORDER BY created_at DESC, id DESC'
     rows = query(sql)
     stage_map = all_stages()
-    return [serialize_client(r, stage_map) for r in rows]
+    return [serialize_client(r, stage_map, include_payload) for r in rows]

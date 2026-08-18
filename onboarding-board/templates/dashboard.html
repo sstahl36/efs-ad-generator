@@ -511,7 +511,8 @@
     ['active', 'In flight'],
     ['stuck', 'Stuck'],
     ['blocked', 'Blocked'],
-    ['live', 'Live']
+    ['live', 'Live'],
+    ['archived', 'Archived']
   ];
 
   let CLIENTS = [];
@@ -554,7 +555,7 @@
     const tiles = [];
 
     tiles.push(tile('In flight', s.in_progress + s.blocked + s.not_started,
-      s.total + ' clients tracked'));
+      s.total + ' on the board' + (s.archived ? ' · ' + s.archived + ' archived' : '')));
     tiles.push(tile('Live', s.live,
       s.launched_last_30 + ' launched in last 30 days'));
     tiles.push(tile('Median time to live', num(s.median_days_to_launch, 'days'),
@@ -663,6 +664,9 @@
     const sort = document.getElementById('sortBy').value;
 
     let rows = CLIENTS.filter(c => {
+      // Archived clients stay off the board unless you go looking for them.
+      if (filter === 'archived') { if (!c.archived) return false; }
+      else if (c.archived) return false;
       if (owner && c.owner !== owner) return false;
       if (filter === 'live' && c.overall !== 'live') return false;
       if (filter === 'active' && c.overall === 'live') return false;
@@ -828,9 +832,15 @@
       inp('Company', 'ed_company', c.company) + inp('Website', 'ed_website', c.website) + '</div>';
     html += '<div class="field"><label>Internal notes</label><textarea id="ed_notes">' +
       esc(c.notes || '') + '</textarea></div>';
-    html += '<div style="display:flex;gap:10px"><button class="btn" onclick="saveClient(' + c.id +
-      ')">Save details</button><button class="btn danger" onclick="removeClient(' + c.id +
-      ')">Delete</button></div>';
+    html += '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" onclick="saveClient(' +
+      c.id + ')">Save details</button>' +
+      '<button class="btn ghost" onclick="setArchived(' + c.id + ',' + (c.archived ? 'false' : 'true') +
+      ')">' + (c.archived ? 'Restore to board' : 'Archive') + '</button>' +
+      '<button class="btn danger" onclick="removeClient(' + c.id + ')">Delete</button></div>';
+    if (!c.archived) {
+      html += '<p class="card-sub" style="margin-top:8px">Archiving clears them off the board but keeps ' +
+        'their timings in the stage averages.</p>';
+    }
 
     const submitted = flatten(c.submitted);
     if (Object.keys(submitted).length) {
@@ -877,6 +887,13 @@
     toast('Saved');
     await load();
     openDrawer(id);
+  }
+
+  async function setArchived(id, archived) {
+    await patch('/api/clients/' + id, { archived: archived });
+    toast(archived ? 'Archived' : 'Restored to the board');
+    closeDrawer();
+    load();
   }
 
   async function removeClient(id) {

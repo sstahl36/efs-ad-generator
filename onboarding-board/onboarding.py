@@ -275,8 +275,9 @@ def webhook_ghl():
 @bp.route('/api/clients', methods=['GET'])
 @login_required
 def api_list_clients():
-    include_archived = request.args.get('archived') == '1'
-    clients = db.list_clients(include_archived=include_archived)
+    # Archived clients are returned so the board can offer an Archived view
+    # without a second round trip; build_stats decides what they count toward.
+    clients = db.list_clients(include_archived=True)
     return jsonify({
         'clients': clients,
         'stages': db.STAGES,
@@ -409,14 +410,22 @@ def _median(values):
 
 
 def build_stats(clients):
-    """Aggregate the operational metrics the team runs the pipeline on."""
-    total = len(clients)
-    live = sum(1 for c in clients if c['overall'] == 'live')
-    blocked = sum(1 for c in clients if c['overall'] == 'blocked')
-    not_started = sum(1 for c in clients if c['overall'] == 'not_started')
+    """Aggregate the operational metrics the team runs the pipeline on.
+
+    Two different questions need two different populations. "What is happening
+    right now" (in flight, stuck, piled up on a stage) counts only clients still
+    on the board. "How have we performed" (time to live, days per stage) counts
+    archived clients too — putting a finished client away should not erase the
+    history that tells you how long they took.
+    """
+    active = [c for c in clients if not c.get('archived')]
+    total = len(active)
+    live = sum(1 for c in active if c['overall'] == 'live')
+    blocked = sum(1 for c in active if c['overall'] == 'blocked')
+    not_started = sum(1 for c in active if c['overall'] == 'not_started')
 
     stuck = [
-        c for c in clients
+        c for c in active
         if c['overall'] != 'live'
         and c['current_wait_days'] is not None
         and c['current_wait_days'] >= STUCK_AFTER_DAYS
@@ -440,17 +449,17 @@ def build_stats(clients):
             c['stages'][key]['duration_days'] for c in clients
             if c['stages'][key]['duration_days'] is not None
         ]
-        waiting = [c for c in clients if c['current_stage'] == key]
+        waiting = [c for c in active if c['current_stage'] == key]
         waits = [c['current_wait_days'] for c in waiting if c['current_wait_days'] is not None]
         stage_stats.append({
             'key': key,
             'label': stage['label'],
             'short': stage['short'],
-            'done': sum(1 for c in clients if c['stages'][key]['status'] == 'done'),
+            'done': sum(1 for c in active if c['stages'][key]['status'] == 'done'),
             'pct': round(
-                sum(1 for c in clients if c['stages'][key]['status'] == 'done') / total * 100
+                sum(1 for c in active if c['stages'][key]['status'] == 'done') / total * 100
             ) if total else 0,
-            'blocked': sum(1 for c in clients if c['stages'][key]['status'] == 'blocked'),
+            'blocked': sum(1 for c in active if c['stages'][key]['status'] == 'blocked'),
             'wip': len(waiting),
             'wip_names': [c['name'] for c in waiting][:8],
             'avg_days': _mean(durations),
@@ -471,6 +480,7 @@ def build_stats(clients):
 
     return {
         'total': total,
+        'archived': len(clients) - total,
         'live': live,
         'blocked': blocked,
         'not_started': not_started,
