@@ -73,6 +73,11 @@
       background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
       border-radius: 9px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px;
     }
+    .banner.danger { background: #fff5f5; border-color: #fca5a5; color: #b91c1c; }
+    .banner code {
+      background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px;
+      font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    }
 
     /* ── KPI tiles ───────────────────────────────────────────── */
     .kpis {
@@ -366,6 +371,15 @@
     <div class="banner">
       <strong>This board is not password protected.</strong>
       Set a <code>DASHBOARD_PASSWORD</code> environment variable in Railway so only your team can reach it.
+    </div>
+    {% endif %}
+    {% if not durable_storage %}
+    <div class="banner danger">
+      <strong>This board is using temporary storage.</strong>
+      Everything on it &mdash; every client, every stage, every date &mdash; is erased the
+      next time this service redeploys. In Railway, press <code>&#8984;K</code>, type
+      <code>postgres</code>, and choose <strong>Add PostgreSQL</strong>. It connects itself,
+      and this message disappears.
     </div>
     {% endif %}
     {% if not secret_required %}

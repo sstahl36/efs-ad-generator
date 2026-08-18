@@ -522,5 +522,6 @@ def dashboard():
         webhook_url=webhook_url,
         secret_required=bool(WEBHOOK_SECRET),
         password_set=bool(DASHBOARD_PASSWORD),
+        durable_storage=db.IS_PG,
         actor=current_actor(),
     )
