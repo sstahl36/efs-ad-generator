@@ -171,7 +171,7 @@ def extract_stage(payload):
     """Pull an optional stage instruction out of the payload.
 
     Lets a GHL workflow advance the board directly — send `stage` (a key or a
-    label like "ATP Approved") and optionally `stage_status`.
+    label like "A2P Complete") and optionally `stage_status`.
     """
     flat = _flatten(payload)
     raw_stage = _pick(flat, 'stage', 'stage_key', 'stageKey', 'onboarding_stage', 'onboardingStage')
@@ -253,10 +253,9 @@ def webhook_ghl():
         contact['source'] = 'ghl-webhook'
         client_id = db.create_client(contact, actor='ghl-webhook', raw_payload=payload)
         created = True
-        # A client arriving from the CRM is, by definition, onboarded and has
-        # submitted their information.
-        db.set_stage(client_id, 'onboarded', 'done', actor='ghl-webhook')
-        db.set_stage(client_id, 'info_submitted', 'done', actor='ghl-webhook')
+        # A client only reaches this webhook by submitting the onboarding form,
+        # so that first stage is satisfied on arrival.
+        db.set_stage(client_id, db.INTAKE_STAGE, 'done', actor='ghl-webhook')
 
     stage_key, status = extract_stage(payload)
     if stage_key:

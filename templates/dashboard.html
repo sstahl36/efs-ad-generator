@@ -481,10 +481,10 @@
       <p>Add a <code>stage</code> field to any webhook and this board moves that client
       along without anyone clicking. Send the stage label and, optionally, a
       <code>stage_status</code> of done, in_progress, or blocked:</p>
-      <code class="snippet">{ "email": "jane@acme.com", "stage": "ATP Approved", "stage_status": "done" }</code>
+      <code class="snippet">{ "email": "jane@acme.com", "stage": "A2P Complete", "stage_status": "done" }</code>
       <p>Matching is by email first, then GHL contact id, then name — so repeat
       submissions update the same client instead of creating duplicates. A brand new
-      client is automatically marked Onboarded and Info Submitted.</p>
+      client is automatically marked Onboarding Forms Complete.</p>
 
       <div class="modal-actions">
         <button class="btn" onclick="closeWebhookHelp()">Got it</button>
@@ -801,7 +801,7 @@
         ? 'Live — took ' + (c.days_to_launch !== null ? days(c.days_to_launch) : 'unknown')
         : c.current_stage_label + (c.current_wait_days !== null ? ' (' + days(c.current_wait_days) + ')' : '')) +
       row('Progress', c.done_count + ' of ' + c.stage_count + ' stages') +
-      row('Onboarded', fmtDate(c.created_at)) +
+      row('Added', fmtDate(c.created_at)) +
       row('Last activity', fmtDate(c.updated_at)) +
       '</dl>';
 

@@ -79,15 +79,16 @@ space, or you can just bookmark the Railway URL.
 
 | # | Stage | Meaning |
 |---|-------|---------|
-| 1 | Onboarded | Deal closed, client kicked off |
-| 2 | Info Submitted | They sent us their information |
-| 3 | Website Updated | Their site is updated for ATP |
-| 4 | ATP Submitted | Verification submitted |
-| 5 | ATP Approved | Verification came back approved |
+| 1 | Onboarding Forms Complete | They submitted their onboarding forms |
+| 2 | GHL Account Set Up | Their GoHighLevel sub-account is built |
+| 3 | Website Updates Made | Their site is updated for A2P registration |
+| 4 | A2P Submitted | 10DLC registration submitted to the carriers |
+| 5 | A2P Complete | Registration came back approved |
 | 6 | Workbook Complete | Their workbook is finished |
-| 7 | Ads Finalized | Ads are built |
-| 8 | Final Review | Internal review done |
-| 9 | Ads Launched | Live |
+| 7 | Ads Created | Ads are built |
+| 8 | CloseBot Set Up | CloseBot is configured and connected |
+| 9 | Final Review Complete | Internal review signed off |
+| 10 | All Systems Live | Everything is running |
 
 Each cell is **not started**, **in progress**, **blocked**, or **done** — one
 more state than the sheet had, so a stalled client is visibly stalled rather
@@ -132,13 +133,14 @@ detail panel, so no submitted data is lost.
 Matching is by email, then GHL contact id, then name — repeat submissions update
 the same client instead of creating a duplicate. Webhook updates only fill in
 blank fields, so they never overwrite something a person edited by hand. A new
-client is automatically marked Onboarded and Info Submitted.
+client is automatically marked Onboarding Forms Complete, since submitting
+that form is what triggered the webhook.
 
 **Advancing stages from GHL (optional).** Add a `stage` field to any webhook and
 the board moves that client along without anyone clicking:
 
 ```json
-{ "email": "jane@acme.com", "stage": "ATP Approved", "stage_status": "done" }
+{ "email": "jane@acme.com", "stage": "A2P Complete", "stage_status": "done" }
 ```
 
 `stage` accepts the label or the key. `stage_status` accepts done, in_progress,

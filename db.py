@@ -27,20 +27,25 @@ if IS_PG:
 # These are the columns of the old color-coded Google Sheet, left to right.
 
 STAGES = [
-    {'key': 'onboarded',         'label': 'Onboarded',        'short': 'Onboard'},
-    {'key': 'info_submitted',    'label': 'Info Submitted',   'short': 'Info'},
-    {'key': 'website_updated',   'label': 'Website Updated',  'short': 'Website'},
-    {'key': 'atp_submitted',     'label': 'ATP Submitted',    'short': 'ATP Sub'},
-    {'key': 'atp_approved',      'label': 'ATP Approved',     'short': 'ATP OK'},
-    {'key': 'workbook_complete', 'label': 'Workbook Complete', 'short': 'Workbook'},
-    {'key': 'ads_finalized',     'label': 'Ads Finalized',    'short': 'Ads'},
-    {'key': 'final_review',      'label': 'Final Review',     'short': 'Review'},
-    {'key': 'launched',          'label': 'Ads Launched',     'short': 'Live'},
+    {'key': 'forms_complete',    'label': 'Onboarding Forms Complete', 'short': 'Forms'},
+    {'key': 'ghl_setup',         'label': 'GHL Account Set Up',        'short': 'GHL'},
+    {'key': 'website_updated',   'label': 'Website Updates Made',      'short': 'Website'},
+    {'key': 'a2p_submitted',     'label': 'A2P Submitted',             'short': 'A2P Sub'},
+    {'key': 'a2p_complete',      'label': 'A2P Complete',              'short': 'A2P Done'},
+    {'key': 'workbook_complete', 'label': 'Workbook Complete',         'short': 'Workbook'},
+    {'key': 'ads_created',       'label': 'Ads Created',               'short': 'Ads'},
+    {'key': 'closebot_setup',    'label': 'CloseBot Set Up',           'short': 'CloseBot'},
+    {'key': 'final_review',      'label': 'Final Review Complete',     'short': 'Review'},
+    {'key': 'all_systems_live',  'label': 'All Systems Live',          'short': 'Live'},
 ]
 
 STAGE_KEYS = [s['key'] for s in STAGES]
 STAGE_LABELS = {s['key']: s['label'] for s in STAGES}
-FINAL_STAGE = 'launched'
+
+# The stage a GHL form submission satisfies on arrival, and the one that means
+# the client is fully launched.
+INTAKE_STAGE = 'forms_complete'
+FINAL_STAGE = 'all_systems_live'
 
 STATUSES = ('not_started', 'in_progress', 'blocked', 'done')
 DEFAULT_STATUS = 'not_started'
@@ -182,6 +187,40 @@ def init_db():
         cur.execute('CREATE INDEX IF NOT EXISTS idx_stages_client ON client_stages (client_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_events_client ON events (client_id)')
         cur.close()
+    _migrate_stage_keys()
+
+
+# Stage keys that were renamed after the board went out. Old rows are carried
+# over so a rename never resets anyone's history. The original pipeline split
+# intake across "onboarded" and "info_submitted"; those merged into a single
+# "forms_complete", so the second one carries the timestamp and the first is
+# dropped.
+RENAMED_STAGE_KEYS = {
+    'info_submitted': 'forms_complete',
+    'atp_submitted': 'a2p_submitted',
+    'atp_approved': 'a2p_complete',
+    'ads_finalized': 'ads_created',
+    'launched': 'all_systems_live',
+}
+RETIRED_STAGE_KEYS = ('onboarded',)
+
+
+def _migrate_stage_keys():
+    present = {r['stage_key'] for r in query('SELECT DISTINCT stage_key FROM client_stages')}
+    for old, new in RENAMED_STAGE_KEYS.items():
+        if old not in present:
+            continue
+        # Drop any placeholder row already sitting on the new key so the
+        # carried-over row does not collide with it.
+        execute(
+            'DELETE FROM client_stages WHERE stage_key = ? AND client_id IN'
+            ' (SELECT client_id FROM client_stages WHERE stage_key = ?)',
+            (new, old),
+        )
+        execute('UPDATE client_stages SET stage_key = ? WHERE stage_key = ?', (new, old))
+    for dead in RETIRED_STAGE_KEYS:
+        if dead in present:
+            execute('DELETE FROM client_stages WHERE stage_key = ?', (dead,))
 
 
 # ── Events ───────────────────────────────────────────────────────────────────
