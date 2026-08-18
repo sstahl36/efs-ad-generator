@@ -294,6 +294,15 @@
     .kv dt { color: var(--faint); overflow-wrap: anywhere; }
     .kv dd { color: var(--ink); overflow-wrap: anywhere; }
 
+    .tl-date {
+      border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px;
+      font-size: 12px; font-family: inherit; color: var(--muted); background: #fafbfd;
+      outline: none;
+    }
+    .tl-date:focus { border-color: var(--blue); background: #fff; }
+    .backfill-note {
+      font-size: 12px; color: var(--faint); margin: 8px 0 0; line-height: 1.5;
+    }
     .timeline-row {
       display: flex; align-items: center; gap: 10px; padding: 8px 0;
       border-bottom: 1px solid #f5f7fa; font-size: 13px;
@@ -819,7 +828,8 @@
         ? 'Live — took ' + (c.days_to_launch !== null ? days(c.days_to_launch) : 'unknown')
         : c.current_stage_label + (c.current_wait_days !== null ? ' (' + days(c.current_wait_days) + ')' : '')) +
       row('Progress', c.done_count + ' of ' + c.stage_count + ' stages') +
-      row('Added', fmtDate(c.created_at)) +
+      '<dt>Onboarded</dt><dd><input type="date" class="tl-date" value="' +
+        dateVal(c.created_at) + '" onchange="setAddedDate(' + c.id + ', this.value)" /></dd>' +
       row('Last activity', fmtDate(c.updated_at)) +
       '</dl>';
 
@@ -831,11 +841,18 @@
       if (st.duration_days !== null) right = days(st.duration_days);
       else if (c.current_stage === s.key && st.waiting_days !== null)
         right = 'waiting ' + days(st.waiting_days);
+      const dateCell = st.status === 'done'
+        ? '<input type="date" class="tl-date" value="' + dateVal(st.completed_at) +
+          '" onchange="setStageDate(' + c.id + ', \'' + s.key + '\', this.value)" />'
+        : '';
       html += '<div class="timeline-row">' +
         '<span class="tl-dot" style="background:' + m.line + '"></span>' +
         '<span class="tl-label">' + esc(s.label) + '</span>' +
+        dateCell +
         '<span class="tl-days">' + right + '</span></div>';
     });
+    html += '<p class="backfill-note">Dates are editable. Correct them for clients who ' +
+      'started before this board existed and the timings will read true.</p>';
 
     html += '<div class="section-title">Details</div>';
     html += '<div class="row2">' +
@@ -889,6 +906,25 @@
   function inp(label, id, value) {
     return '<div class="field"><label>' + label + '</label>' +
       '<input id="' + id + '" value="' + esc(value || '') + '" /></div>';
+  }
+
+  function dateVal(iso) { return iso ? String(iso).slice(0, 10) : ''; }
+
+  async function setAddedDate(id, value) {
+    if (!value) return;
+    await patch('/api/clients/' + id, { created_at: value });
+    toast('Onboarding date updated');
+    await load();
+    openDrawer(id);
+  }
+
+  async function setStageDate(id, stageKey, value) {
+    if (!value) return;
+    await post('/api/clients/' + id + '/stage',
+               { stage: stageKey, status: 'done', completed_at: value });
+    toast('Stage date updated');
+    await load();
+    openDrawer(id);
   }
 
   async function saveClient(id) {

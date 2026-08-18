@@ -64,6 +64,21 @@ def parse_ts(value):
         return None
 
 
+def parse_date_input(value):
+    """Turn a YYYY-MM-DD date from the UI into our stored timestamp format.
+
+    Anchored at midday UTC so the date a person picked is the date that shows
+    back to them regardless of their timezone.
+    """
+    if not value:
+        return None
+    try:
+        day = datetime.strptime(str(value).strip()[:10], '%Y-%m-%d')
+    except (ValueError, TypeError):
+        return None
+    return day.strftime('%Y-%m-%dT12:00:00Z')
+
+
 def days_since(value):
     ts = parse_ts(value)
     if not ts:
@@ -281,6 +296,11 @@ def update_client(client_id, data, actor='system'):
         if key in data:
             fields.append(f'{key} = ?')
             params.append(data[key])
+    if data.get('created_at'):
+        stamp = parse_date_input(data['created_at'])
+        if stamp:
+            fields.append('created_at = ?')
+            params.append(stamp)
     if 'archived' in data:
         fields.append('archived = ?')
         params.append(1 if data['archived'] else 0)
@@ -298,15 +318,16 @@ def touch_client(client_id):
     execute('UPDATE clients SET updated_at = ? WHERE id = ?', (utcnow(), client_id))
 
 
-def set_stage(client_id, stage_key, status, actor='system'):
+def set_stage(client_id, stage_key, status, actor='system', completed_at=None):
     if stage_key not in STAGE_KEYS:
         raise ValueError(f'Unknown stage: {stage_key}')
     if status not in STATUSES:
         raise ValueError(f'Unknown status: {status}')
     now = utcnow()
     # completed_at is the clock the cycle-time metrics run on: stamped when a
-    # stage is marked done, cleared if it gets moved back.
-    completed_at = now if status == 'done' else None
+    # stage is marked done, cleared if it gets moved back. An explicit date is
+    # passed when backfilling a stage that was actually cleared weeks ago.
+    completed_at = (completed_at or now) if status == 'done' else None
     execute(
         """INSERT INTO client_stages (client_id, stage_key, status, completed_at, updated_at)
            VALUES (?, ?, ?, ?, ?)

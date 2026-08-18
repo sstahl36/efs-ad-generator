@@ -313,6 +313,8 @@ def api_update_client(client_id):
     if not db.get_client(client_id):
         return jsonify({'error': 'Client not found'}), 404
     data = request.get_json(force=True, silent=True) or {}
+    if data.get('created_at') and not db.parse_date_input(data['created_at']):
+        return jsonify({'error': 'Date must look like YYYY-MM-DD'}), 400
     db.update_client(client_id, data, actor=current_actor())
     return jsonify({'ok': True})
 
@@ -332,8 +334,15 @@ def api_set_stage(client_id):
     if not db.get_client(client_id):
         return jsonify({'error': 'Client not found'}), 404
     data = request.get_json(force=True, silent=True) or {}
+    # An explicit date backfills a stage that was cleared before the board existed.
+    completed_at = None
+    if data.get('completed_at'):
+        completed_at = db.parse_date_input(data['completed_at'])
+        if not completed_at:
+            return jsonify({'error': 'Date must look like YYYY-MM-DD'}), 400
     try:
-        db.set_stage(client_id, data.get('stage'), data.get('status'), actor=current_actor())
+        db.set_stage(client_id, data.get('stage'), data.get('status'),
+                     actor=current_actor(), completed_at=completed_at)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'ok': True})
