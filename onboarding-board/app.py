@@ -10,11 +10,17 @@ import secrets
 from datetime import timedelta
 
 from flask import Flask, redirect, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import db
 from onboarding import bp as onboarding_bp
 
 app = Flask(__name__)
+
+# Railway terminates TLS at its edge and forwards plain http, so without this
+# the app thinks every request is insecure and builds http:// URLs — including
+# the webhook URL shown on the board, which carries the shared secret.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Cookies are marked Secure and SameSite=None so the board still works if it is
 # ever embedded in an iframe; set DEV_INSECURE_COOKIES=1 to sign in over plain
