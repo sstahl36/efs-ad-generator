@@ -326,9 +326,12 @@
     .cell.done { background: var(--done-bg); color: var(--done-fg); }
     .cell.in_progress { background: var(--prog-bg); color: var(--prog-fg); }
     .cell.blocked { background: var(--block-bg); color: var(--block-fg); }
-    /* Where they are now: a ring, so it reads without adding another colour. */
-    .cell.current {
-      box-shadow: inset 0 0 0 1.5px var(--blue);
+    /* Where they are now is a ring and nothing else. It must not repaint the
+       cell, or the same status reads as two different colours depending on
+       whether the client happens to be sitting on it. */
+    .cell.current { box-shadow: inset 0 0 0 1.5px var(--blue); }
+    /* A cell with no status of its own is the one case worth tinting. */
+    .cell.current:not(.done):not(.in_progress):not(.blocked) {
       background: var(--current-bg); color: var(--blue-ink);
     }
 
