@@ -501,14 +501,22 @@
       <p>Everything else in the payload is stored as-is and shown on the client's
       detail panel, so nothing gets lost.</p>
 
-      <p><strong>3. Advance stages from GHL (optional)</strong></p>
+      <p><strong>3. Advance stages from GHL</strong></p>
       <p>Add a <code>stage</code> field to any webhook and this board moves that client
-      along without anyone clicking. Send the stage label and, optionally, a
-      <code>stage_status</code> of done, in_progress, or blocked:</p>
+      along without anyone clicking. The three worth automating, because GHL already
+      knows all of them:</p>
+      <ul>
+        <li><strong>Contract signed</strong> &mdash; no stage field needed; this creates the client</li>
+        <li><strong>Forms submitted</strong> &mdash; <code>"stage": "Onboarding Forms Complete"</code></li>
+        <li><strong>Onboarding call</strong> &mdash; <code>"stage": "Onboarding Call"</code></li>
+      </ul>
+      <p>Send the stage label and, optionally, a <code>stage_status</code> of done,
+      in_progress, or blocked:</p>
       <code class="snippet">{ "email": "jane@acme.com", "stage": "A2P Complete", "stage_status": "done" }</code>
       <p>Matching is by email first, then GHL contact id, then name — so repeat
       submissions update the same client instead of creating duplicates. A brand new
-      client is automatically marked Onboarding Forms Complete.</p>
+      client is automatically marked Contract Signed, and their clock starts there
+      &mdash; so the wait between signing and starting is measured, not hidden.</p>
 
       <div class="modal-actions">
         <button class="btn" onclick="closeWebhookHelp()">Got it</button>

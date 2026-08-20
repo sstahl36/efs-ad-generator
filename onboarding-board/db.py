@@ -27,7 +27,9 @@ if IS_PG:
 # These are the columns of the old color-coded Google Sheet, left to right.
 
 STAGES = [
+    {'key': 'contract_signed',   'label': 'Contract Signed',           'short': 'Contract'},
     {'key': 'forms_complete',    'label': 'Onboarding Forms Complete', 'short': 'Forms'},
+    {'key': 'onboarding_call',   'label': 'Onboarding Call',           'short': 'Call'},
     {'key': 'ghl_setup',         'label': 'GHL Account Set Up',        'short': 'GHL'},
     {'key': 'website_updated',   'label': 'Website Updates Made',      'short': 'Website'},
     {'key': 'a2p_submitted',     'label': 'A2P Submitted',             'short': 'A2P Sub'},
@@ -42,9 +44,10 @@ STAGES = [
 STAGE_KEYS = [s['key'] for s in STAGES]
 STAGE_LABELS = {s['key']: s['label'] for s in STAGES}
 
-# The stage a GHL form submission satisfies on arrival, and the one that means
-# the client is fully launched.
-INTAKE_STAGE = 'forms_complete'
+# A client is created the moment the contract is signed, so that is the stage
+# their arrival satisfies. Everything after it is driven by later webhooks or by
+# the team. FINAL_STAGE is what "live" means.
+INTAKE_STAGE = 'contract_signed'
 FINAL_STAGE = 'all_systems_live'
 
 STATUSES = ('not_started', 'in_progress', 'blocked', 'done')
@@ -236,6 +239,54 @@ def _migrate_stage_keys():
     for dead in RETIRED_STAGE_KEYS:
         if dead in present:
             execute('DELETE FROM client_stages WHERE stage_key = ?', (dead,))
+    _backfill_intake_stage()
+
+
+def _backfill_intake_stage():
+    """Give clients from before the intake stage existed a sensible first stage.
+
+    Clients onboarded under the old flow arrived at form submission, so their
+    board shows the forms stage done but nothing before it. Adding an earlier
+    stage would otherwise drop them all back to the start of the pipeline. A
+    client who submitted forms had certainly signed, so the intake stage is
+    marked done at the moment they were created.
+
+    Guarded on the stage row being absent entirely, which is only ever true for
+    clients created before the stage existed — so this runs once and never
+    re-marks a stage somebody has deliberately cleared.
+    """
+    orphans = query(
+        """SELECT c.id, c.created_at FROM clients c
+           WHERE NOT EXISTS (
+               SELECT 1 FROM client_stages s
+               WHERE s.client_id = c.id AND s.stage_key = ?
+           )""",
+        (INTAKE_STAGE,),
+    )
+    for row in orphans:
+        insert(
+            'INSERT INTO client_stages (client_id, stage_key, status, completed_at, updated_at)'
+            " VALUES (?, ?, 'done', ?, ?)",
+            (row['id'], INTAKE_STAGE, row['created_at'], row['created_at']),
+        )
+    # Stages added later in the pipeline just need a placeholder row.
+    for key in STAGE_KEYS:
+        if key == INTAKE_STAGE:
+            continue
+        missing = query(
+            """SELECT c.id, c.created_at FROM clients c
+               WHERE NOT EXISTS (
+                   SELECT 1 FROM client_stages s
+                   WHERE s.client_id = c.id AND s.stage_key = ?
+               )""",
+            (key,),
+        )
+        for row in missing:
+            insert(
+                'INSERT INTO client_stages (client_id, stage_key, status, completed_at, updated_at)'
+                ' VALUES (?, ?, ?, NULL, ?)',
+                (row['id'], key, DEFAULT_STATUS, row['created_at']),
+            )
 
 
 # ── Events ───────────────────────────────────────────────────────────────────

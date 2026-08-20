@@ -93,16 +93,24 @@ The same reference is in the **Webhook setup** button in the board's top bar.
 
 | # | Stage | Meaning |
 |---|-------|---------|
-| 1 | Onboarding Forms Complete | They submitted their onboarding forms |
-| 2 | GHL Account Set Up | Their GoHighLevel sub-account is built |
-| 3 | Website Updates Made | Their site is updated for A2P registration |
-| 4 | A2P Submitted | 10DLC registration submitted to the carriers |
-| 5 | A2P Complete | Registration came back approved |
-| 6 | Workbook Complete | Their workbook is finished |
-| 7 | Ads Created | Ads are built |
-| 8 | CloseBot Set Up | CloseBot is configured and connected |
-| 9 | Final Review Complete | Internal review signed off |
-| 10 | All Systems Live | Everything is running |
+| 1 | Contract Signed | Deal closed. Creating the client here means the wait before they start is measured, not hidden. |
+| 2 | Onboarding Forms Complete | They submitted their onboarding forms |
+| 3 | Onboarding Call | Kickoff call happened |
+| 4 | GHL Account Set Up | Their GoHighLevel sub-account is built |
+| 5 | Website Updates Made | Their site is updated for A2P registration |
+| 6 | A2P Submitted | 10DLC registration submitted to the carriers |
+| 7 | A2P Complete | Registration came back approved |
+| 8 | Workbook Complete | Their workbook is finished |
+| 9 | Ads Created | Ads are built |
+| 10 | CloseBot Set Up | CloseBot is configured and connected |
+| 11 | Final Review Complete | Internal review signed off |
+| 12 | All Systems Live | Everything is running |
+
+The first three stages come straight from GoHighLevel, which already knows all
+of them — see **Connect GoHighLevel** below. They give you three measures that
+are otherwise invisible: how long clients take to do their homework
+(contract to forms), booking lag (forms to call), and delivery speed (call to
+live).
 
 Every cell is **not started**, **in progress**, **blocked**, or **done**.
 Click a cell to change it.
