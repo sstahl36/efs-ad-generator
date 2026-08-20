@@ -141,7 +141,7 @@
     .btn.danger { background: var(--surface); color: var(--block-fg); border: 1px solid var(--block-line); }
     .btn.danger:hover { background: var(--block-bg); }
 
-    main { padding: 24px 28px 80px; max-width: 1680px; margin: 0 auto; }
+    main { padding: 22px 28px 28px; max-width: 1680px; margin: 0 auto; }
 
     .banner {
       background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink);
@@ -186,10 +186,12 @@
     .panels {
       display: grid;
       grid-template-columns: 1.55fr 1fr;
+      align-items: start;
       gap: 16px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     @media (max-width: 1100px) { .panels { grid-template-columns: 1fr; } }
+    .side-col { display: flex; flex-direction: column; gap: 16px; }
 
     .card {
       background: var(--surface); border: 1px solid var(--line);
@@ -208,7 +210,7 @@
     }
     table.stagetable th:first-child { text-align: left; }
     table.stagetable td {
-      padding: 7px 6px; font-size: 13px; border-top: 1px solid var(--line-soft);
+      padding: 5.5px 6px; font-size: 12.5px; border-top: 1px solid var(--line-soft);
       text-align: right; color: var(--ink); white-space: nowrap;
     }
     table.stagetable td:first-child { text-align: left; width: 100%; }
@@ -235,12 +237,15 @@
     }
     .attn-row:hover .attn-name { color: var(--blue); }
     .attn-name { font-weight: 600; font-size: 13px; flex: 1; }
-    .attn-stage { font-size: 12px; color: var(--ink-2); }
+    .attn-stage {
+      font-size: 12px; color: var(--ink-2); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; max-width: 22ch;
+    }
     .attn-days {
       font-size: 12px; font-weight: 700; color: var(--block-fg);
       background: var(--block-bg); padding: 3px 8px; border-radius: 5px; white-space: nowrap;
     }
-    .empty { font-size: 13px; color: var(--ink-3); padding: 14px 0; }
+    .empty { font-size: 13px; color: var(--ink-3); padding: 4px 0 2px; }
 
     /* ── Toolbar ─────────────────────────────────────────────── */
     .toolbar {
@@ -305,7 +310,10 @@
       display: block; margin-bottom: 2px; letter-spacing: -0.012em;
     }
     .who-name:hover { color: var(--blue); }
-    .who-meta { font-size: 11.5px; color: var(--ink-3); }
+    .who-meta {
+      font-size: 11.5px; color: var(--ink-3); display: block;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34ch;
+    }
 
     .cell {
       width: 100%; min-width: 54px; height: 28px; border-radius: 5px;
@@ -515,10 +523,17 @@
         <p class="card-sub">Average days spent in each stage, and how many clients are sitting there right now.</p>
         <div id="stageTable"></div>
       </div>
-      <div class="card">
-        <h2>Needs attention</h2>
-        <p class="card-sub" id="attnSub">Clients parked at the same stage too long.</p>
-        <div id="attention"></div>
+      <div class="side-col">
+        <div class="card">
+          <h2>Needs attention</h2>
+          <p class="card-sub" id="attnSub">Clients parked at the same stage too long.</p>
+          <div id="attention"></div>
+        </div>
+        <div class="card" id="holdCard" style="display:none">
+          <h2>On hold</h2>
+          <p class="card-sub">Parked on purpose. Worth a glance so nobody is forgotten.</p>
+          <div id="holdList"></div>
+        </div>
       </div>
     </div>
 
@@ -693,6 +708,7 @@
       renderKpis();
       renderStageTable();
       renderAttention();
+      renderHolds();
       render();
       document.getElementById('lastSync').textContent =
         'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -784,13 +800,28 @@
     document.getElementById('stageTable').innerHTML = html;
   }
 
+  function renderHolds() {
+    const held = CLIENTS.filter(c => c.on_hold && !c.archived);
+    const card = document.getElementById('holdCard');
+    if (!held.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    document.getElementById('holdList').innerHTML = held.map(c =>
+      '<div class="attn-row" onclick="openDrawer(' + c.id + ')">' +
+        '<span class="attn-name">' + esc(c.name) + '</span>' +
+        '<span class="attn-stage" title="' + esc(c.hold_reason || '') + '">' +
+          esc(c.hold_reason || c.current_stage_label) + '</span>' +
+        '<span class="hold-badge">' + (c.hold_days !== null ? c.hold_days + 'd' : '') + '</span>' +
+      '</div>'
+    ).join('');
+  }
+
   function renderAttention() {
     const list = STATS.stuck_clients || [];
     document.getElementById('attnSub').textContent =
       'Clients with no movement for ' + STATS.stuck_after_days + '+ days.';
     if (!list.length) {
       document.getElementById('attention').innerHTML =
-        '<p class="empty">Nothing is stalled. Every client has moved in the last ' +
+        '<p class="empty">Nothing is stalled &mdash; every client has moved in the last ' +
         STATS.stuck_after_days + ' days.</p>';
       return;
     }
@@ -881,10 +912,12 @@
     }
 
     document.getElementById('boardBody').innerHTML = rows.map(c => {
-      const meta = [
+      const metaParts = [
         c.on_hold ? 'On hold' + (c.hold_reason ? ': ' + c.hold_reason : '') : null,
         c.company, c.brand, c.owner ? 'Owner: ' + c.owner : null
-      ].filter(Boolean).join(' &middot; ');
+      ].filter(Boolean);
+      const meta = metaParts.join(' &middot; ');
+      const metaPlain = metaParts.join(' · ');
 
       const cells = STAGES.map(s => {
         const st = c.stages[s.key];
@@ -911,7 +944,7 @@
       return '<tr' + (c.on_hold ? ' class="held"' : '') + '>' +
         '<td class="who-col">' +
           '<span class="who-name" onclick="openDrawer(' + c.id + ')">' + esc(c.name) + '</span>' +
-          '<span class="who-meta">' + (meta || '&nbsp;') + '</span>' +
+          '<span class="who-meta" title="' + esc(metaPlain) + '">' + (meta || '&nbsp;') + '</span>' +
         '</td>' + cells +
         '<td><div class="prog-wrap"><div class="prog-bar"><span style="width:' + c.progress + '%"></span></div>' +
         '<span class="prog-num">' + c.done_count + '/' + c.stage_count + '</span></div></td>' +
