@@ -372,6 +372,21 @@ def api_set_stages_through(client_id):
     return jsonify({'ok': True, 'stages': applied})
 
 
+@bp.route('/api/clients/<int:client_id>/hold', methods=['POST'])
+@login_required
+def api_set_hold(client_id):
+    """Put a client on hold, or take them off it."""
+    data = request.get_json(force=True, silent=True) or {}
+    ok = db.set_hold(
+        client_id, bool(data.get('on_hold')),
+        reason=(data.get('reason') or '').strip() or None,
+        actor=current_actor(),
+    )
+    if not ok:
+        return jsonify({'error': 'Client not found'}), 404
+    return jsonify({'ok': True})
+
+
 @bp.route('/api/clients/<int:client_id>/note', methods=['POST'])
 @login_required
 def api_add_note(client_id):
@@ -462,7 +477,8 @@ def build_stats(clients):
 
     stuck = [
         c for c in active
-        if c['overall'] != 'live'
+        if not c['on_hold']
+        and c['overall'] != 'live'
         and c['current_wait_days'] is not None
         and c['current_wait_days'] >= STUCK_AFTER_DAYS
     ]
@@ -490,7 +506,7 @@ def build_stats(clients):
             c['stages'][key]['duration_days'] for c in clients
             if c['stages'][key]['duration_days'] is not None
         ]
-        waiting = [c for c in active if c['current_stage'] == key]
+        waiting = [c for c in active if c['current_stage'] == key and not c['on_hold']]
         waits = [c['current_wait_days'] for c in waiting if c['current_wait_days'] is not None]
         stage_stats.append({
             'key': key,
@@ -522,6 +538,7 @@ def build_stats(clients):
     return {
         'total': total,
         'archived': len(clients) - total,
+        'on_hold': sum(1 for c in active if c['on_hold']),
         'live': live,
         'blocked': blocked,
         'not_started': not_started,

@@ -208,7 +208,25 @@ def init_db():
         cur.execute('CREATE INDEX IF NOT EXISTS idx_stages_client ON client_stages (client_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_events_client ON events (client_id)')
         cur.close()
+    _ensure_column('clients', 'on_hold', 'INTEGER DEFAULT 0')
+    _ensure_column('clients', 'hold_started_at', 'TEXT')
+    _ensure_column('clients', 'hold_stage', 'TEXT')
+    _ensure_column('clients', 'hold_reason', 'TEXT')
+    _ensure_column('client_stages', 'held_days', 'REAL DEFAULT 0')
     _migrate_stage_keys()
+
+
+def _ensure_column(table, column, ddl):
+    """Add a column to an existing table, ignoring it if it is already there.
+
+    Both engines raise on a duplicate column, and neither offers a portable
+    IF NOT EXISTS for this, so attempting it and swallowing the failure is the
+    simplest thing that works on a database with live data in it.
+    """
+    try:
+        execute(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}')
+    except Exception:
+        pass
 
 
 # Stage keys that were renamed after the board went out. Old rows are carried
@@ -397,6 +415,53 @@ def set_stage(client_id, stage_key, status, actor='system', completed_at=None):
     )
 
 
+def set_hold(client_id, on_hold, reason=None, actor='system'):
+    """Put a client on hold, or take them off it.
+
+    Time spent on hold is attributed to whichever stage they were sitting on,
+    so it can be taken back out of that stage's duration. A client waiting on
+    something at their end should not read as the team being slow.
+    """
+    row = query('SELECT * FROM clients WHERE id = ?', (client_id,), one=True)
+    if not row:
+        return False
+    now = utcnow()
+
+    if on_hold and not row.get('on_hold'):
+        stages = all_stages().get(client_id, {})
+        current = next(
+            (k for k in STAGE_KEYS
+             if (stages.get(k) or {}).get('status') != 'done'),
+            FINAL_STAGE,
+        )
+        execute(
+            'UPDATE clients SET on_hold = 1, hold_started_at = ?, hold_stage = ?,'
+            ' hold_reason = ?, updated_at = ? WHERE id = ?',
+            (now, current, reason, now, client_id),
+        )
+        log_event(client_id, 'hold', f'On hold{": " + reason if reason else ""}', actor)
+
+    elif not on_hold and row.get('on_hold'):
+        started = parse_ts(row.get('hold_started_at'))
+        elapsed = 0.0
+        if started:
+            elapsed = max(0.0, round(
+                (datetime.now(timezone.utc) - started).total_seconds() / 86400, 2))
+        stage = row.get('hold_stage') or FINAL_STAGE
+        execute(
+            'UPDATE client_stages SET held_days = COALESCE(held_days, 0) + ?'
+            ' WHERE client_id = ? AND stage_key = ?',
+            (elapsed, client_id, stage),
+        )
+        execute(
+            'UPDATE clients SET on_hold = 0, hold_started_at = NULL, hold_stage = NULL,'
+            ' updated_at = ? WHERE id = ?',
+            (now, client_id),
+        )
+        log_event(client_id, 'hold', f'Off hold after {elapsed:.1f} days', actor)
+    return True
+
+
 def merge_raw_payload(client_id, payload):
     """Merge a fresh webhook payload into the stored one so nothing is lost."""
     row = query('SELECT raw_payload FROM clients WHERE id = ?', (client_id,), one=True)
@@ -450,13 +515,15 @@ def delete_client(client_id):
 
 def all_stages():
     """Return {client_id: {stage_key: {...}}} for every client."""
-    rows = query('SELECT client_id, stage_key, status, completed_at, updated_at FROM client_stages')
+    rows = query('SELECT client_id, stage_key, status, completed_at, updated_at,'
+                 ' COALESCE(held_days, 0) AS held_days FROM client_stages')
     out = {}
     for r in rows:
         out.setdefault(r['client_id'], {})[r['stage_key']] = {
             'status': r['status'],
             'completed_at': r['completed_at'],
             'updated_at': r['updated_at'],
+            'held_days': r['held_days'] or 0,
         }
     return out
 
@@ -475,7 +542,13 @@ def serialize_client(row, stage_map, include_payload=True):
         entry.setdefault('status', DEFAULT_STATUS)
         entry.setdefault('completed_at', None)
         entry.setdefault('updated_at', row['created_at'])
+        entry.setdefault('held_days', 0)
         resolved[key] = entry
+
+    # Time already spent on the current hold is not committed to a stage yet.
+    live_hold = 0.0
+    if row.get('on_hold') and row.get('hold_started_at'):
+        live_hold = days_since(row['hold_started_at']) or 0.0
 
     # Walk the pipeline in order to work out how long each stage actually took.
     # A stage is "entered" the moment the stage before it was completed, so
@@ -487,15 +560,19 @@ def serialize_client(row, stage_map, include_payload=True):
         entry['entered_at'] = entered_at
         entry['duration_days'] = None
         entry['waiting_days'] = None
+        held = (entry.get('held_days') or 0) + (live_hold if key == row.get('hold_stage') else 0)
+        entry['held_days_total'] = round(held, 1)
         if entry['status'] == 'done' and entry['completed_at']:
             start, finish = parse_ts(entered_at), parse_ts(entry['completed_at'])
             if start and finish:
-                entry['duration_days'] = max(
-                    0.0, round((finish - start).total_seconds() / 86400, 1)
-                )
+                elapsed = (finish - start).total_seconds() / 86400
+                entry['duration_days'] = max(0.0, round(elapsed - held, 1))
             entered_at = entry['completed_at']
         else:
-            entry['waiting_days'] = days_since(entered_at)
+            waiting = days_since(entered_at)
+            entry['waiting_days'] = (
+                max(0.0, round(waiting - held, 1)) if waiting is not None else None
+            )
 
     done = [k for k in STAGE_KEYS if resolved[k]['status'] == 'done']
     blocked = [k for k in STAGE_KEYS if resolved[k]['status'] == 'blocked']
@@ -543,7 +620,14 @@ def serialize_client(row, stage_map, include_payload=True):
             days_to_launch = max(0.0, round((launched - started).total_seconds() / 86400, 1))
         kickoff = parse_ts(onboarding_started_at) if onboarding_started_at else None
         if kickoff and launched:
-            days_onboarding_to_live = max(0.0, round((launched - kickoff).total_seconds() / 86400, 1))
+            # Only holds that happened during delivery are deducted.
+            after_kickoff = STAGE_KEYS.index(ONBOARDING_STAGE)
+            held_in_delivery = sum(
+                resolved[k].get('held_days_total') or 0
+                for k in STAGE_KEYS[after_kickoff:]
+            )
+            days_onboarding_to_live = max(0.0, round(
+                (launched - kickoff).total_seconds() / 86400 - held_in_delivery, 1))
 
     raw = None
     if include_payload and row.get('raw_payload'):
@@ -582,6 +666,11 @@ def serialize_client(row, stage_map, include_payload=True):
         'days_onboarding_to_live': days_onboarding_to_live,
         'days_to_onboarding': days_to_onboarding,
         'onboarding_started_at': onboarding_started_at,
+        'on_hold': bool(row.get('on_hold')),
+        'hold_reason': row.get('hold_reason'),
+        'hold_days': round(live_hold, 1) if row.get('on_hold') else None,
+        'held_days_total': round(
+            sum(resolved[k].get('held_days_total') or 0 for k in STAGE_KEYS), 1),
         'launched_at': resolved[FINAL_STAGE]['completed_at'] if is_live else None,
     }
 

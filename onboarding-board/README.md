@@ -115,6 +115,15 @@ live).
 Every cell is **not started**, **in progress**, **blocked**, or **done**.
 Click a cell to change it.
 
+**Blocked vs on hold.** Blocked means something is in the way and somebody
+should go fix it — it turns the cell red and puts the client in Needs
+Attention. **On hold** is the opposite: a client deliberately parked, usually
+waiting on something at their end. Held clients sink to the bottom of the
+board, drop out of the alerts and the stage pile-up counts, and their held
+time is taken back out of the delivery metric, so a client waiting on their
+own website never reads as the team being slow. Total contract-to-live still
+counts every day, because that is what the client actually experienced.
+
 To rename, add, or remove a stage, edit `STAGES` at the top of `db.py`. Add the
 old key to `RENAMED_STAGE_KEYS` in the same file and existing history carries
 over instead of resetting.

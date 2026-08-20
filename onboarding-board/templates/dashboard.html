@@ -232,6 +232,12 @@
     .prog-num { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
     .age { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
     .age.warn { color: #b91c1c; font-weight: 600; }
+    .hold-badge {
+      background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 700;
+      padding: 3px 9px; border-radius: 5px; white-space: nowrap;
+    }
+    tr.held td.who-col, tr.held td { opacity: 0.62; }
+    tr.held:hover td.who-col, tr.held:hover td { opacity: 1; }
     .live-badge {
       background: var(--done-bg); color: var(--done-fg); font-size: 11px;
       font-weight: 700; padding: 3px 9px; border-radius: 5px;
@@ -544,6 +550,7 @@
     ['stuck', 'Stuck'],
     ['blocked', 'Blocked'],
     ['live', 'Live'],
+    ['hold', 'On hold'],
     ['archived', 'Archived']
   ];
 
@@ -586,8 +593,9 @@
     const s = STATS;
     const tiles = [];
 
-    tiles.push(tile('In flight', s.in_progress + s.blocked + s.not_started,
-      s.total + ' on the board' + (s.archived ? ' · ' + s.archived + ' archived' : '')));
+    tiles.push(tile('In flight', s.in_progress + s.blocked + s.not_started - s.on_hold,
+      (s.on_hold ? s.on_hold + ' on hold · ' : '') + s.total + ' on the board' +
+      (s.archived ? ' · ' + s.archived + ' archived' : '')));
     tiles.push(tile('Live', s.live,
       s.launched_last_30 + ' launched in last 30 days'));
     tiles.push(tile('Time to live', num(s.median_delivery_days, 'days'),
@@ -703,6 +711,8 @@
       // Archived clients stay off the board unless you go looking for them.
       if (filter === 'archived') { if (!c.archived) return false; }
       else if (c.archived) return false;
+      if (filter === 'hold' && !c.on_hold) return false;
+      if (filter === 'stuck' && c.on_hold) return false;
       if (owner && c.owner !== owner) return false;
       if (filter === 'live' && c.overall !== 'live') return false;
       if (filter === 'active' && c.overall === 'live') return false;
@@ -727,7 +737,10 @@
       fastest: (a, b) => (a.days_onboarding_to_live === null ? Infinity : a.days_onboarding_to_live) -
                          (b.days_onboarding_to_live === null ? Infinity : b.days_onboarding_to_live)
     };
-    return rows.sort(by[sort] || by.recent);
+    // On-hold clients sink to the bottom of every sort — they are deliberately
+    // parked, so they should not sit in the middle of live work.
+    const order = by[sort] || by.recent;
+    return rows.sort((a, b) => (a.on_hold ? 1 : 0) - (b.on_hold ? 1 : 0) || order(a, b));
   }
 
   function render() {
@@ -747,8 +760,10 @@
     }
 
     document.getElementById('boardBody').innerHTML = rows.map(c => {
-      const meta = [c.company, c.brand, c.owner ? 'Owner: ' + c.owner : null]
-        .filter(Boolean).join(' &middot; ');
+      const meta = [
+        c.on_hold ? 'On hold' + (c.hold_reason ? ': ' + c.hold_reason : '') : null,
+        c.company, c.brand, c.owner ? 'Owner: ' + c.owner : null
+      ].filter(Boolean).join(' &middot; ');
 
       const cells = STAGES.map(s => {
         const st = c.stages[s.key];
@@ -762,7 +777,9 @@
           STATUS_META[st.status].glyph + '</button></td>';
       }).join('');
 
-      const waiting = c.overall === 'live'
+      const waiting = c.on_hold
+        ? '<span class="hold-badge">Held ' + (c.hold_days !== null ? c.hold_days + 'd' : '') + '</span>'
+        : c.overall === 'live'
         ? '<span class="live-badge" title="' +
           (c.days_to_launch !== null ? c.days_to_launch + ' days from contract' : '') +
           '">Live in ' + (c.days_onboarding_to_live !== null ? c.days_onboarding_to_live + 'd'
@@ -770,7 +787,7 @@
         : '<span class="age' + (c.current_wait_days !== null && c.current_wait_days >= STATS.stuck_after_days ? ' warn' : '') +
           '">' + (c.current_wait_days !== null ? c.current_wait_days + 'd' : '—') + '</span>';
 
-      return '<tr>' +
+      return '<tr' + (c.on_hold ? ' class="held"' : '') + '>' +
         '<td class="who-col">' +
           '<span class="who-name" onclick="openDrawer(' + c.id + ')">' + esc(c.name) + '</span>' +
           '<span class="who-meta">' + (meta || '&nbsp;') + '</span>' +
@@ -868,6 +885,10 @@
           (c.days_to_onboarding !== null ? ' · ' + days(c.days_to_onboarding) + ' after signing' : '')
         : 'Kickoff call not marked yet') +
       row('Last activity', fmtDate(c.updated_at)) +
+      (c.on_hold
+        ? '<dt>On hold</dt><dd>' + days(c.hold_days || 0) + ' so far' +
+          (c.hold_reason ? ' &mdash; ' + esc(c.hold_reason) : '') + '</dd>'
+        : (c.held_days_total ? row('Time on hold', days(c.held_days_total) + ' (not counted)') : '')) +
       '</dl>';
 
     html += '<div class="section-title">Stage timeline</div>';
@@ -902,6 +923,8 @@
       esc(c.notes || '') + '</textarea></div>';
     html += '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" onclick="saveClient(' +
       c.id + ')">Save details</button>' +
+      '<button class="btn ghost" onclick="toggleHold(' + c.id + ',' + (c.on_hold ? 'false' : 'true') +
+      ')">' + (c.on_hold ? 'Take off hold' : 'Put on hold') + '</button>' +
       '<button class="btn ghost" onclick="setArchived(' + c.id + ',' + (c.archived ? 'false' : 'true') +
       ')">' + (c.archived ? 'Restore to board' : 'Archive') + '</button>' +
       '<button class="btn danger" onclick="removeClient(' + c.id + ')">Delete</button></div>';
@@ -972,6 +995,17 @@
     };
     await patch('/api/clients/' + id, payload);
     toast('Saved');
+    await load();
+    openDrawer(id);
+  }
+
+  async function toggleHold(id, on) {
+    let reason = null;
+    if (on) {
+      reason = prompt('What are they waiting on? (optional)') || '';
+    }
+    await post('/api/clients/' + id + '/hold', { on_hold: on, reason: reason });
+    toast(on ? 'Put on hold — clock paused' : 'Back on the board');
     await load();
     openDrawer(id);
   }
