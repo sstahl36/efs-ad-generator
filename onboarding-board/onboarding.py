@@ -348,6 +348,30 @@ def api_set_stage(client_id):
     return jsonify({'ok': True})
 
 
+@bp.route('/api/clients/<int:client_id>/stages', methods=['POST'])
+@login_required
+def api_set_stages_through(client_id):
+    """Mark every stage up to and including one as done, in a single call.
+
+    The pipeline is sequential, so a client sitting at A2P Complete has by
+    definition cleared everything before it. Labelling a backlog one cell at a
+    time is the slow part of getting existing clients onto the board.
+    """
+    if not db.get_client(client_id):
+        return jsonify({'error': 'Client not found'}), 404
+    data = request.get_json(force=True, silent=True) or {}
+    through = data.get('through')
+    if through not in db.STAGE_KEYS:
+        return jsonify({'error': f'Unknown stage: {through}'}), 400
+
+    cutoff = db.STAGE_KEYS.index(through)
+    applied = []
+    for key in db.STAGE_KEYS[:cutoff + 1]:
+        db.set_stage(client_id, key, 'done', actor=current_actor())
+        applied.append(key)
+    return jsonify({'ok': True, 'stages': applied})
+
+
 @bp.route('/api/clients/<int:client_id>/note', methods=['POST'])
 @login_required
 def api_add_note(client_id):

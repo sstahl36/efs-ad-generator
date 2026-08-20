@@ -255,6 +255,7 @@
     }
     .popover button:hover { background: #f2f5fa; }
     .swatch { width: 13px; height: 13px; border-radius: 4px; border: 1px solid; flex-shrink: 0; }
+    .pop-sep { height: 1px; background: #f0f3f8; margin: 4px 0; }
 
     /* ── Drawer ──────────────────────────────────────────────── */
     .scrim {
@@ -775,7 +776,14 @@
     const client = CLIENTS.find(c => c.id === clientId);
     const currentStatus = client.stages[stageKey].status;
 
-    pop.innerHTML = '<div class="pop-head">' + esc(stage.label) + '</div>' +
+    const idx = STAGES.findIndex(s => s.key === stageKey);
+    const sweep = idx > 0
+      ? '<button onclick="markThrough(' + clientId + ', \'' + stageKey + '\')">' +
+        '<span class="swatch" style="background:#d1fae5;border-color:#6ee7b7"></span>' +
+        'Done through here <span class="dim">(' + (idx + 1) + ')</span></button>' +
+        '<div class="pop-sep"></div>'
+      : '';
+    pop.innerHTML = '<div class="pop-head">' + esc(stage.label) + '</div>' + sweep +
       STATUSES.map(st => {
         const m = STATUS_META[st];
         const check = st === currentStatus ? ' &check;' : '';
@@ -799,6 +807,14 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { closePopover(); closeDrawer(); closeAdd(); closeWebhookHelp(); }
   });
+
+  async function markThrough(clientId, stageKey) {
+    closePopover();
+    const res = await post('/api/clients/' + clientId + '/stages', { through: stageKey });
+    if (res) toast('Marked ' + res.stages.length + ' stages done');
+    await load();
+    if (openClientId === clientId) openDrawer(clientId);
+  }
 
   async function setStage(clientId, stageKey, status) {
     closePopover();
