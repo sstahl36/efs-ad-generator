@@ -590,14 +590,18 @@
       s.total + ' on the board' + (s.archived ? ' · ' + s.archived + ' archived' : '')));
     tiles.push(tile('Live', s.live,
       s.launched_last_30 + ' launched in last 30 days'));
-    tiles.push(tile('Median time to live', num(s.median_days_to_launch, 'days'),
-      s.avg_days_to_launch !== null
-        ? 'Average ' + s.avg_days_to_launch + ' days'
+    tiles.push(tile('Time to live', num(s.median_delivery_days, 'days'),
+      s.median_delivery_days !== null
+        ? 'Median, from the onboarding call'
         : 'No launches yet', false, true));
+    tiles.push(tile('Contract to live', num(s.median_days_to_launch, 'days'),
+      s.median_days_to_onboarding !== null
+        ? s.median_days_to_onboarding + ' of it before kickoff'
+        : 'Includes the wait before starting', false, true));
     tiles.push(tile('Fastest / slowest',
       (s.fastest_launch !== null ? s.fastest_launch : '—') + ' / ' +
       (s.slowest_launch !== null ? s.slowest_launch : '—'),
-      'Days from onboard to live', false, true));
+      'Days from kickoff to live', false, true));
     tiles.push(tile('Stuck', s.stuck,
       'No movement in ' + s.stuck_after_days + '+ days', s.stuck > 0));
     tiles.push(tile('Blocked', s.blocked,
@@ -720,8 +724,8 @@
       waiting: (a, b) => (b.current_wait_days || 0) - (a.current_wait_days || 0),
       progress: (a, b) => b.progress - a.progress,
       name: (a, b) => a.name.localeCompare(b.name),
-      fastest: (a, b) => (a.days_to_launch === null ? Infinity : a.days_to_launch) -
-                         (b.days_to_launch === null ? Infinity : b.days_to_launch)
+      fastest: (a, b) => (a.days_onboarding_to_live === null ? Infinity : a.days_onboarding_to_live) -
+                         (b.days_onboarding_to_live === null ? Infinity : b.days_onboarding_to_live)
     };
     return rows.sort(by[sort] || by.recent);
   }
@@ -759,7 +763,10 @@
       }).join('');
 
       const waiting = c.overall === 'live'
-        ? '<span class="live-badge">Live in ' + (c.days_to_launch !== null ? c.days_to_launch + 'd' : '—') + '</span>'
+        ? '<span class="live-badge" title="' +
+          (c.days_to_launch !== null ? c.days_to_launch + ' days from contract' : '') +
+          '">Live in ' + (c.days_onboarding_to_live !== null ? c.days_onboarding_to_live + 'd'
+                          : (c.days_to_launch !== null ? c.days_to_launch + 'd' : '—')) + '</span>'
         : '<span class="age' + (c.current_wait_days !== null && c.current_wait_days >= STATS.stuck_after_days ? ' warn' : '') +
           '">' + (c.current_wait_days !== null ? c.current_wait_days + 'd' : '—') + '</span>';
 
@@ -849,11 +856,17 @@
     html += '<div class="section-title">Where they are</div>';
     html += '<dl class="kv">' +
       row('Status', c.overall === 'live'
-        ? 'Live — took ' + (c.days_to_launch !== null ? days(c.days_to_launch) : 'unknown')
+        ? 'Live — ' + (c.days_onboarding_to_live !== null
+            ? days(c.days_onboarding_to_live) + ' from kickoff'
+            : 'launched')
         : c.current_stage_label + (c.current_wait_days !== null ? ' (' + days(c.current_wait_days) + ')' : '')) +
       row('Progress', c.done_count + ' of ' + c.stage_count + ' stages') +
-      '<dt>Onboarded</dt><dd><input type="date" class="tl-date" value="' +
+      '<dt>Contract signed</dt><dd><input type="date" class="tl-date" value="' +
         dateVal(c.created_at) + '" onchange="setAddedDate(' + c.id + ', this.value)" /></dd>' +
+      row('Onboarding started', c.onboarding_started_at
+        ? fmtDate(c.onboarding_started_at) +
+          (c.days_to_onboarding !== null ? ' · ' + days(c.days_to_onboarding) + ' after signing' : '')
+        : 'Kickoff call not marked yet') +
       row('Last activity', fmtDate(c.updated_at)) +
       '</dl>';
 

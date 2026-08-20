@@ -48,6 +48,9 @@ STAGE_LABELS = {s['key']: s['label'] for s in STAGES}
 # their arrival satisfies. Everything after it is driven by later webhooks or by
 # the team. FINAL_STAGE is what "live" means.
 INTAKE_STAGE = 'contract_signed'
+# Onboarding proper starts at the kickoff call, not at signature. Everything
+# before it is the client getting ready; everything after it is our delivery.
+ONBOARDING_STAGE = 'onboarding_call'
 FINAL_STAGE = 'all_systems_live'
 
 STATUSES = ('not_started', 'in_progress', 'blocked', 'done')
@@ -519,12 +522,28 @@ def serialize_client(row, stage_map, include_payload=True):
     # How long this client has been parked at the stage they are on right now.
     current_wait_days = resolved[current]['waiting_days'] if current else None
 
+    # Two clocks. days_to_launch runs from the contract and includes the wait
+    # before the client starts; days_onboarding_to_live runs from the kickoff
+    # call and measures only our delivery.
+    onboarding_started_at = (
+        resolved[ONBOARDING_STAGE]['completed_at']
+        if resolved[ONBOARDING_STAGE]['status'] == 'done' else None
+    )
     days_to_launch = None
+    days_onboarding_to_live = None
+    days_to_onboarding = None
+    if onboarding_started_at:
+        signed, kickoff = parse_ts(row['created_at']), parse_ts(onboarding_started_at)
+        if signed and kickoff:
+            days_to_onboarding = max(0.0, round((kickoff - signed).total_seconds() / 86400, 1))
     if is_live:
-        started = parse_ts(row['created_at'])
         launched = parse_ts(resolved[FINAL_STAGE]['completed_at'] or resolved[FINAL_STAGE]['updated_at'])
+        started = parse_ts(row['created_at'])
         if started and launched:
             days_to_launch = max(0.0, round((launched - started).total_seconds() / 86400, 1))
+        kickoff = parse_ts(onboarding_started_at) if onboarding_started_at else None
+        if kickoff and launched:
+            days_onboarding_to_live = max(0.0, round((launched - kickoff).total_seconds() / 86400, 1))
 
     raw = None
     if include_payload and row.get('raw_payload'):
@@ -560,6 +579,9 @@ def serialize_client(row, stage_map, include_payload=True):
         'idle_days': idle_days,
         'current_wait_days': current_wait_days,
         'days_to_launch': days_to_launch,
+        'days_onboarding_to_live': days_onboarding_to_live,
+        'days_to_onboarding': days_to_onboarding,
+        'onboarding_started_at': onboarding_started_at,
         'launched_at': resolved[FINAL_STAGE]['completed_at'] if is_live else None,
     }
 

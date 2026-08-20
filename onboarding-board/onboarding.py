@@ -398,7 +398,8 @@ def api_export_csv():
         + [f"Days: {s['label']}" for s in db.STAGES]
         + [
             'Progress %', 'Current Stage', 'Days At Current Stage', 'Days Idle',
-            'Days To Launch', 'Added', 'Launched',
+            'Contract To Kickoff', 'Kickoff To Live', 'Contract To Live',
+            'Contract Signed', 'Onboarding Started', 'Launched',
         ]
     )
     for c in clients:
@@ -417,8 +418,10 @@ def api_export_csv():
                 c['progress'], c['current_stage_label'],
                 c['current_wait_days'] if c['current_wait_days'] is not None else '',
                 c['idle_days'] if c['idle_days'] is not None else '',
+                c['days_to_onboarding'] if c['days_to_onboarding'] is not None else '',
+                c['days_onboarding_to_live'] if c['days_onboarding_to_live'] is not None else '',
                 c['days_to_launch'] if c['days_to_launch'] is not None else '',
-                c['created_at'], c['launched_at'] or '',
+                c['created_at'], c['onboarding_started_at'] or '', c['launched_at'] or '',
             ]
         )
     return Response(
@@ -466,6 +469,11 @@ def build_stats(clients):
     stuck.sort(key=lambda c: c['current_wait_days'], reverse=True)
 
     launch_times = [c['days_to_launch'] for c in clients if c['days_to_launch'] is not None]
+    delivery_times = [
+        c['days_onboarding_to_live'] for c in clients
+        if c['days_onboarding_to_live'] is not None
+    ]
+    ramp_times = [c['days_to_onboarding'] for c in clients if c['days_to_onboarding'] is not None]
     launched_recently = sum(
         1 for c in clients
         if c['days_to_launch'] is not None
@@ -529,10 +537,18 @@ def build_stats(clients):
             for c in stuck[:10]
         ],
         'stuck_after_days': STUCK_AFTER_DAYS,
+        # Contract to live: the whole elapsed time a client experiences.
         'avg_days_to_launch': _mean(launch_times),
         'median_days_to_launch': _median(launch_times),
-        'fastest_launch': min(launch_times) if launch_times else None,
-        'slowest_launch': max(launch_times) if launch_times else None,
+        # Kickoff call to live: our delivery speed, with the client's own
+        # pre-start delay taken out of it.
+        'avg_delivery_days': _mean(delivery_times),
+        'median_delivery_days': _median(delivery_times),
+        'fastest_launch': min(delivery_times) if delivery_times else None,
+        'slowest_launch': max(delivery_times) if delivery_times else None,
+        # Contract to kickoff: how long clients take to actually start.
+        'avg_days_to_onboarding': _mean(ramp_times),
+        'median_days_to_onboarding': _median(ramp_times),
         'launched_last_30': launched_recently,
         'stages': stage_stats,
         'slowest_stage': slowest,
