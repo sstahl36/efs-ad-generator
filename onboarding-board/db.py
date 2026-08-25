@@ -391,15 +391,40 @@ def touch_client(client_id):
 
 
 def set_stage(client_id, stage_key, status, actor='system', completed_at=None):
+    """Set one stage's status. Returns True if anything actually changed.
+
+    completed_at is the clock every cycle-time metric runs on, so the rule is
+    that a date already on the board is never silently rewritten. An explicit
+    date always wins (that is the backfill path). Otherwise a stage that is
+    already done keeps the date it was done on -- re-marking it, whether by
+    hand, by "done through here", or by a webhook firing twice, must not drag
+    weeks of real history forward to today. Only a stage crossing into done
+    for the first time gets stamped with now.
+    """
     if stage_key not in STAGE_KEYS:
         raise ValueError(f'Unknown stage: {stage_key}')
     if status not in STATUSES:
         raise ValueError(f'Unknown status: {status}')
     now = utcnow()
-    # completed_at is the clock the cycle-time metrics run on: stamped when a
-    # stage is marked done, cleared if it gets moved back. An explicit date is
-    # passed when backfilling a stage that was actually cleared weeks ago.
-    completed_at = (completed_at or now) if status == 'done' else None
+    current = query(
+        'SELECT status, completed_at FROM client_stages'
+        ' WHERE client_id = ? AND stage_key = ?',
+        (client_id, stage_key), one=True,
+    ) or {}
+
+    if status == 'done':
+        completed_at = completed_at or current.get('completed_at') or now
+    else:
+        # Moved back out of done: the date no longer means anything.
+        completed_at = None
+
+    unchanged = (
+        current.get('status') == status
+        and (current.get('completed_at') or None) == completed_at
+    )
+    if unchanged:
+        return False
+
     execute(
         """INSERT INTO client_stages (client_id, stage_key, status, completed_at, updated_at)
            VALUES (?, ?, ?, ?, ?)
@@ -413,6 +438,7 @@ def set_stage(client_id, stage_key, status, actor='system', completed_at=None):
         f'{STAGE_LABELS[stage_key]} -> {status.replace("_", " ")}',
         actor,
     )
+    return True
 
 
 def set_hold(client_id, on_hold, reason=None, actor='system'):

@@ -1000,7 +1000,9 @@
   async function markThrough(clientId, stageKey) {
     closePopover();
     const res = await post('/api/clients/' + clientId + '/stages', { through: stageKey });
-    if (res) toast('Marked ' + res.stages.length + ' stages done');
+    if (res) toast(res.stages.length
+      ? 'Marked ' + res.stages.length + ' stage' + (res.stages.length > 1 ? 's' : '') + ' done'
+      : 'Already done through here');
     await load();
     if (openClientId === clientId) openDrawer(clientId);
   }

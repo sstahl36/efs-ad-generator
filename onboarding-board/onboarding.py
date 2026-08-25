@@ -356,6 +356,9 @@ def api_set_stages_through(client_id):
     The pipeline is sequential, so a client sitting at A2P Complete has by
     definition cleared everything before it. Labelling a backlog one cell at a
     time is the slow part of getting existing clients onto the board.
+
+    Stages that are already done are left exactly as they are, dates included.
+    Only the ones this sweep is actually filling in get today's date.
     """
     if not db.get_client(client_id):
         return jsonify({'error': 'Client not found'}), 404
@@ -365,11 +368,11 @@ def api_set_stages_through(client_id):
         return jsonify({'error': f'Unknown stage: {through}'}), 400
 
     cutoff = db.STAGE_KEYS.index(through)
-    applied = []
+    changed = []
     for key in db.STAGE_KEYS[:cutoff + 1]:
-        db.set_stage(client_id, key, 'done', actor=current_actor())
-        applied.append(key)
-    return jsonify({'ok': True, 'stages': applied})
+        if db.set_stage(client_id, key, 'done', actor=current_actor()):
+            changed.append(key)
+    return jsonify({'ok': True, 'stages': changed})
 
 
 @bp.route('/api/clients/<int:client_id>/hold', methods=['POST'])
